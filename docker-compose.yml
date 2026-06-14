@@ -1,0 +1,14 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: crm_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: crm_copilot
+    ports:
+      - "5433:5432"
+    # No explicit init script – the migration will CREATE EXTENSION pgcrypto and vector
+    # Volumes are optional for persistence; omitted for this dev session.
