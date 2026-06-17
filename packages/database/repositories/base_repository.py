@@ -27,6 +27,8 @@ from typing import Any, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from packages.database.exceptions import InvalidTenantIdError
+
 from packages.database.queries.tenant_scoped import tenant_scoped_query
 
 
@@ -41,6 +43,8 @@ class BaseRepository:
     model: Any  # expected to be a SQLAlchemy declarative model class
 
     def __init__(self, session: AsyncSession, tenant_id: Any):
+        if tenant_id is None:
+            raise InvalidTenantIdError("Tenant ID must not be None for tenant-scoped repositories")
         self.session = session
         self.tenant_id = tenant_id
 

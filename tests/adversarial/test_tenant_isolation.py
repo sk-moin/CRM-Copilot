@@ -19,6 +19,7 @@ async def test_tenant_isolation_via_repository(async_session):
     org_a = Organization(
         tenant_id=tenant_a.id,
         name="Org A",
+        subdomain="org-a",
         domain="org-a.local",
     )
     async_session.add(org_a)
@@ -39,6 +40,7 @@ async def test_tenant_isolation_via_repository(async_session):
     org_b = Organization(
         tenant_id=tenant_b.id,
         name="Org B",
+        subdomain="org-b",
         domain="org-b.local",
     )
     async_session.add(org_b)

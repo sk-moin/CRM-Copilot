@@ -43,7 +43,8 @@ full picture and `specs/` for per-module specifications.
    (e.g., choosing a library, an index type, an error-handling strategy),
    say so explicitly so I can override it. Don't silently pick the
    "easiest" option and move on.
-9. **Never fabricate command output.** If you cannot run a command (e.g., due to sandbox limits, Docker or DB inaccessibility), state that explicitly. Do not invent placeholder output like `X.XXs` or simulated results. Real test output only – if you cannot run it, say so and I’ll run it myself.
+9. **Never fabricate command output.** If you cannot run a command (e.g., due to sandbox limits, Docker or DB inaccessibility), state that explicitly. Do not invent placeholder output like `X.XXs` or simulated results. Real test output only – if you cannot run it, say so and I’ll run it yourself.
+10. **Specs must exist on disk before implementation begins.** A spec discussed and amended in conversation is not a real spec until it's written to `specs/NNN-name.md`. Before writing any implementation code for a spec, confirm the spec file exists on disk with the final, amended content — not just in chat history.
 
 ## Tech stack (do not substitute without asking)
 

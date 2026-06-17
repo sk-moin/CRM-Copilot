@@ -22,6 +22,7 @@ async def test_create_and_relationships(async_session):
     org = Organization(
         tenant_id=tenant.id,
         name="Acme Sales",
+        subdomain="acme-sales",
         domain="sales.acme.com",
     )
     async_session.add(org)

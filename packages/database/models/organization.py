@@ -31,6 +31,13 @@ class Organization(Base):
         comment="FK → tenant.id – enforces tenant isolation",
     )
     name: str = Column(String, nullable=False, comment="Organization name")
+    # New – unique subdomain required by Spec 001.
+    subdomain: str = Column(
+        String,
+        nullable=False,
+        unique=True,
+        comment="Unique organization subdomain",
+    )
     domain: str | None = Column(
         String, nullable=True, comment="Optional custom domain for the org"
     )
