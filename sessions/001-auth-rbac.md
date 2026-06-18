@@ -1,6 +1,7 @@
 # Session 001 – Authentication & RBAC
 
-**Date:** 2026‑06‑18 (commit f9e8d32 “Spec 001: Auth & RBAC”)
+**Date:** 2026-06-14 – 2026-06-18  
+**Goal:** Create a production-ready, tenant-aware authentication and authorization system where every user action is isolated to their organization.
 
 ---
 
@@ -60,7 +61,6 @@ All code lives under the prescribed package structure, respects the hard archite
 | `app/core/__init__.py` | Package marker. |
 | `app/services/__init__.py` (already listed) |
 
-*Only source files are listed; compiled `.pyc` files and `__pycache__` directories are intentionally omitted.*
 
 ---
 
@@ -169,7 +169,7 @@ All code lives under the prescribed package structure, respects the hard archite
 
 ## Technical Debt
 
-* **Refresh‑token TTL** – Implementation defaults to **7 days** while the spec expects **30 days**. The value is configurable via `REFRESH_TOKEN_TTL_SECONDS`; alignment will be addressed in Spec 002.
+* **Refresh‑token TTL** – Implementation defaults to **30 days** as the spec expects **30 days**. The value is configurable via `REFRESH_TOKEN_TTL_SECONDS`; alignment will be addressed in Spec 002.
 * **Password‑policy enforcement** – No validation of password strength; only hashing. Should be added when a user‑facing registration UI is built.
 * **Rate‑limiting unit tests** – Not covered; will need integration tests with the middleware.
 * **RBAC enforcement** – Roles are stored but no endpoint guards exist yet. **RBAC guards are intentionally deferred until API endpoints exist**.
@@ -204,18 +204,12 @@ All code lives under the prescribed package structure, respects the hard archite
 - [x] Comprehensive unit test suite (`tests/unit/*`, `tests/adversarial/*`).  
 - [x] Updated `CLAUDE.md` to note the new spec file.  
 
----
-
-## Pre‑Spec 002 Checklist
- 
-- [ ] No secrets (e.g., `JWT_SECRET`) are tracked in the repository; only `.env.example` is version‑controlled.  
-- [ ] Migration files are clean, contain only the necessary schema changes, and have no compiled artifacts.
 
 ---
 
 ## Recommendations Before Starting Spec 002
 
-1. **Finalize token TTL** – Align `REFRESH_TOKEN_TTL_SECONDS` with the spec (7 days) or update the spec documentation accordingly.
+1. **Finalize token TTL** – Align `REFRESH_TOKEN_TTL_SECONDS` with the spec (30 days) or update the spec documentation accordingly.
 2. **Add password‑policy validation** – Implement a helper that enforces minimum length, complexity, and disallows common passwords.
 3. **Introduce RBAC guards** – Create FastAPI dependencies (`has_role`) that read the JWT `role` claim and raise `HTTPException(403)` when unauthorized. Add tests for each role.
 4. **Rate‑limiting integration tests** – Write end‑to‑end tests exercising the `fastapi‑limiter` middleware for the auth endpoints.

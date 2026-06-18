@@ -29,9 +29,9 @@ ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_SECONDS", "900")
 )
 
-# Refresh token lives in Redis for 7 days (604 800 seconds) by default.
+# Refresh token lives in Redis for 30 days (2592000 seconds) by default.
 REFRESH_TOKEN_TTL_SECONDS: Final[int] = int(
-    os.getenv("REFRESH_TOKEN_TTL_SECONDS", "604800")
+    os.getenv("REFRESH_TOKEN_TTL_SECONDS", "2592000")
 )
 
 # ---------------------------------------------------------------------------
