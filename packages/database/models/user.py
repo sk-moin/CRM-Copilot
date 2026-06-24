@@ -13,34 +13,42 @@ from packages.database.models.organization import Organization
 
 
 class User(Base):
-    """User account belonging to an organization."""
-
     __tablename__ = "user"
 
-    id: PGUUID = Column(
+    id = Column(
         PGUUID(as_uuid=True),
         primary_key=True,
         server_default=func.gen_random_uuid(),
-        comment="Primary key",
     )
-    org_id: PGUUID = Column(
+
+    tenant_id = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Direct tenant ownership",
+    )
+
+    org_id = Column(
         PGUUID(as_uuid=True),
         ForeignKey("organization.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="FK → organization.id – indirect tenant link",
     )
-    email: str = Column(
+
+    email = Column(
         String,
         nullable=False,
         unique=True,
         index=True,
-        comment="User email address – unique across all tenants",
     )
-    password_hash: str = Column(
-        String, nullable=False, comment="Bcrypt hash of the user's password"
+
+    password_hash = Column(
+        String,
+        nullable=False,
     )
-    role: str = Column(
+
+    role = Column(
         Enum(
             "OWNER",
             "ADMIN",
@@ -50,16 +58,22 @@ class User(Base):
         ),
         nullable=False,
         default="MEMBER",
-        comment="Role within the organization (enum‑like)",
     )
-    created_at: datetime.datetime = Column(
+
+    created_at = Column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
-        comment="Timestamp of user creation",
     )
 
-    # Relationships
+    tenant = relationship(
+        "Tenant",
+        backref="users",
+        lazy="joined",
+    )
+
     organization = relationship(
-        "Organization", backref="users", lazy="joined"
+        "Organization",
+        backref="users",
+        lazy="joined",
     )

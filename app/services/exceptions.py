@@ -4,6 +4,9 @@ These exceptions are raised by ``AuthService`` and will be translated to HTTP
 responses by the FastAPI router layer (e.g., ``DuplicateEmailError`` → 409).
 """
 
+class DomainError(Exception):
+    """Base class for all service-layer domain errors."""
+    pass
 
 class AuthError(Exception):
     """Base class for all authentication‑related domain errors."""
@@ -38,4 +41,13 @@ class UserNotFoundError(AuthError):
 class InvalidTenantIdError(AuthError):
     """Raised when a tenant-scoped repository receives an invalid tenant_id."""
 
+    pass
+
+class EntityNotFoundError(Exception):
+    """Raised when a requested entity does not exist in the current tenant."""
+    pass
+
+
+class BusinessRuleViolationError(Exception):
+    """Raised when a business‑logic rule is violated (e.g. duplicate name)."""
     pass

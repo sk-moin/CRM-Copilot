@@ -25,6 +25,7 @@ async def test_tenant_isolation_via_repository(async_session):
     async_session.add(org_a)
     await async_session.flush()
     user_a = User(
+        tenant_id=tenant_a.id,
         org_id=org_a.id,
         email="a_user@example.com",
         password_hash="hash-a",
@@ -46,6 +47,7 @@ async def test_tenant_isolation_via_repository(async_session):
     async_session.add(org_b)
     await async_session.flush()
     user_b = User(
+        tenant_id=tenant_b.id,
         org_id=org_b.id,
         email="b_user@example.com",
         password_hash="hash-b",

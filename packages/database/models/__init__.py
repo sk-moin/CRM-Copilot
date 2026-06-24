@@ -11,3 +11,10 @@ from .base import Base
 from .tenant import Tenant
 from .organization import Organization
 from .user import User
+
+# CRM Core
+from .company import Company
+from .contact import Contact
+from .opportunity import Opportunity
+from .task import Task
+from .note import Note

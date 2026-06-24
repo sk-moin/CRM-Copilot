@@ -118,6 +118,7 @@ class AuthService:
             password_hash=hash_password(password),
             role="OWNER",
             org_id=organization.id,
+            tenant_id=organization.tenant_id,
         )
         self.session.add(user)
         await self.session.flush()

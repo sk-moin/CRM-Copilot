@@ -30,6 +30,7 @@ async def test_create_and_relationships(async_session):
 
     # --- create a user belonging to the organization ---
     user = User(
+        tenant_id=tenant.id,
         org_id=org.id,
         email="alice@example.com",
         password_hash="fakehash",
