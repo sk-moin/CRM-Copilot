@@ -5,12 +5,13 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.database.models.contact import Contact
-from packages.database.repositories.contact_repository import ContactRepository
 from packages.database.repositories.company_repository import CompanyRepository
+from packages.database.repositories.contact_repository import ContactRepository
 
+from app.services.audit_service import AuditService
 from app.services.exceptions import (
-    EntityNotFoundError,
     BusinessRuleViolationError,
+    EntityNotFoundError,
 )
 
 
@@ -22,20 +23,35 @@ class ContactService:
     tenant_id passed to the repository constructor.
     """
 
-    def __init__(self, session: AsyncSession, current_user: Any):
-        tenant_id = current_user.organization.tenant_id
+    def __init__(
+        self,
+        session: AsyncSession,
+        current_user: Any,
+    ):
+        self._session = session
+        self._user = current_user
+        self.tenant_id = current_user.tenant_id
 
-        self.repo = ContactRepository(session=session, tenant_id=tenant_id)
-        self.company_repo = CompanyRepository(
+        self.repo = ContactRepository(
             session=session,
-            tenant_id=tenant_id,
+            tenant_id=self.tenant_id,
         )
 
-        self._user = current_user
+        self.company_repo = CompanyRepository(
+            session=session,
+            tenant_id=self.tenant_id,
+        )
+
+        self.audit_service = AuditService(
+            session=session,
+            tenant_id=self.tenant_id,
+            current_user=current_user,
+        )
 
     # ------------------------------------------------------------------ #
     # CREATE
     # ------------------------------------------------------------------ #
+
     async def create_contact(
         self,
         *,
@@ -56,15 +72,15 @@ class ContactService:
 
         if not company_id:
             raise BusinessRuleViolationError("company_id is required")
-        
-        company = await self.company_repo.get_by_id(company_id)
-        
-        if company is None:
-                raise EntityNotFoundError(
-                    f"Company {company_id} not found"
-                )
 
-        return await self.repo.create(
+        company = await self.company_repo.get_by_id(company_id)
+
+        if company is None:
+            raise EntityNotFoundError(
+                f"Company {company_id} not found"
+            )
+
+        contact = await self.repo.create(
             first_name=first_name,
             last_name=last_name,
             company_id=company_id,
@@ -72,13 +88,24 @@ class ContactService:
             phone=phone,
             job_title=job_title,
             org_id=self._user.org_id,
-            tenant_id=self._user.tenant_id,
         )
+
+        await self.audit_service.log_create(
+            entity_type="contact",
+            entity_id=contact.id,
+            after_values=self.audit_service.build_contact_snapshot(contact),
+        )
+
+        return contact
 
     # ------------------------------------------------------------------ #
     # READ
     # ------------------------------------------------------------------ #
-    async def get_contact(self, contact_id: str) -> Contact:
+
+    async def get_contact(
+        self,
+        contact_id: str,
+    ) -> Contact:
         """Get a contact by ID."""
 
         contact = await self.repo.get_by_id(contact_id)
@@ -101,6 +128,7 @@ class ContactService:
     # ------------------------------------------------------------------ #
     # UPDATE
     # ------------------------------------------------------------------ #
+
     async def update_contact(
         self,
         contact_id: str,
@@ -116,8 +144,11 @@ class ContactService:
 
         contact = await self.get_contact(contact_id)
 
+        before_snapshot = self.audit_service.build_contact_snapshot(contact)
+
         if company_id is not None:
             company = await self.company_repo.get_by_id(company_id)
+
             if company is None:
                 raise EntityNotFoundError(
                     f"Company {company_id} not found"
@@ -146,22 +177,38 @@ class ContactService:
         if not update_data:
             return contact
 
-        updated = await self.repo.update(contact_id, **update_data)
+        updated = await self.repo.update(
+            contact_id,
+            **update_data,
+        )
 
         if updated is None:
             raise EntityNotFoundError(
                 f"Contact {contact_id} not found after update"
             )
 
+        await self.audit_service.log_update(
+            entity_type="contact",
+            entity_id=updated.id,
+            before_values=before_snapshot,
+            after_values=self.audit_service.build_contact_snapshot(updated),
+        )
+
         return updated
 
     # ------------------------------------------------------------------ #
     # DELETE
     # ------------------------------------------------------------------ #
-    async def delete_contact(self, contact_id: str) -> bool:
+
+    async def delete_contact(
+        self,
+        contact_id: str,
+    ) -> bool:
         """Delete a contact."""
 
         contact = await self.get_contact(contact_id)
+
+        before_snapshot = self.audit_service.build_contact_snapshot(contact)
 
         deleted = await self.repo.delete(contact.id)
 
@@ -169,5 +216,11 @@ class ContactService:
             raise EntityNotFoundError(
                 f"Contact {contact_id} not found"
             )
+
+        await self.audit_service.log_delete(
+            entity_type="contact",
+            entity_id=contact.id,
+            before_values=before_snapshot,
+        )
 
         return True

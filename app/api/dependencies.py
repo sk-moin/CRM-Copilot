@@ -27,7 +27,7 @@ from app.services.company_service import CompanyService
 from app.services.contact_service import ContactService
 from app.services.opportunity_service import OpportunityService
 from app.services.task_service import TaskService
-
+from app.services.audit_service import AuditService
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
@@ -100,10 +100,21 @@ def get_task_service(
     return TaskService(session=db, current_user=current_user)
 
 
+def get_audit_service(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AuditService:
+    return AuditService(
+        session=db,
+        tenant_id=current_user.tenant_id,
+        current_user=current_user,
+    )
+
 __all__ = [
     "get_current_user",
     "get_company_service",
     "get_contact_service",
     "get_opportunity_service",
     "get_task_service",
+    "get_audit_service",
 ]

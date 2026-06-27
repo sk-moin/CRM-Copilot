@@ -18,3 +18,20 @@ from .contact import Contact
 from .opportunity import Opportunity
 from .task import Task
 from .note import Note
+
+# Audit
+from .audit import AuditLog, AuditAction
+
+
+__all__ = [
+    "Tenant",
+    "Organization",
+    "User",
+    "Company",
+    "Contact",
+    "Opportunity",
+    "Task", 
+    "Note",
+    "AuditLog",
+    "AuditAction"
+]

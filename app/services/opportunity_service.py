@@ -1,4 +1,3 @@
-#app/services/opportunity_service.py
 from __future__ import annotations
 
 from datetime import date
@@ -7,10 +6,12 @@ from typing import Any, Dict, List, Literal, Optional, Set
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.audit_service import AuditService
 from app.services.exceptions import (
     BusinessRuleViolationError,
     EntityNotFoundError,
 )
+
 from packages.database.models.opportunity import Opportunity
 from packages.database.repositories.company_repository import CompanyRepository
 from packages.database.repositories.opportunity_repository import (
@@ -19,14 +20,16 @@ from packages.database.repositories.opportunity_repository import (
 from packages.database.repositories.user_repository import UserRepository
 
 
-VALID_STAGES: Set[Literal[
-    "LEAD",
-    "QUALIFIED",
-    "PROPOSAL",
-    "NEGOTIATION",
-    "WON",
-    "LOST",
-]] = {
+VALID_STAGES: Set[
+    Literal[
+        "LEAD",
+        "QUALIFIED",
+        "PROPOSAL",
+        "NEGOTIATION",
+        "WON",
+        "LOST",
+    ]
+] = {
     "LEAD",
     "QUALIFIED",
     "PROPOSAL",
@@ -39,30 +42,37 @@ VALID_STAGES: Set[Literal[
 class OpportunityService:
     """
     Service layer for Opportunity CRUD operations.
-
-    Repositories are tenant-scoped using
-    current_user.organization.tenant_id.
     """
 
-    def __init__(self, session: AsyncSession, current_user: Any):
-        tenant_id = current_user.organization.tenant_id
+    def __init__(
+        self,
+        session: AsyncSession,
+        current_user: Any,
+    ):
+        self._session = session
+        self._user = current_user
+        self.tenant_id = current_user.tenant_id
 
         self.repo = OpportunityRepository(
             session=session,
-            tenant_id=tenant_id,
+            tenant_id=self.tenant_id,
         )
 
         self.company_repo = CompanyRepository(
             session=session,
-            tenant_id=tenant_id,
+            tenant_id=self.tenant_id,
         )
 
         self.user_repo = UserRepository(
             session=session,
-            tenant_id=tenant_id,
+            tenant_id=self.tenant_id,
         )
 
-        self._org_id = current_user.org_id
+        self.audit_service = AuditService(
+            session=session,
+            tenant_id=self.tenant_id,
+            current_user=current_user,
+        )
 
     # ------------------------------------------------------------------ #
     # CREATE
@@ -79,7 +89,6 @@ class OpportunityService:
         probability: Optional[int] = None,
         expected_close_date: Optional[date] = None,
     ) -> Opportunity:
-        """Create a new opportunity."""
 
         if not company_id:
             raise BusinessRuleViolationError("company_id is required")
@@ -91,9 +100,12 @@ class OpportunityService:
             raise BusinessRuleViolationError("stage is required")
 
         if stage not in VALID_STAGES:
-            raise BusinessRuleViolationError(f"Invalid stage: {stage}")
+            raise BusinessRuleViolationError(
+                f"Invalid stage: {stage}"
+            )
 
         company = await self.company_repo.get_by_id(company_id)
+
         if company is None:
             raise EntityNotFoundError(
                 f"Company {company_id} not found"
@@ -101,6 +113,7 @@ class OpportunityService:
 
         if owner_user_id:
             owner = await self.user_repo.get_by_id(owner_user_id)
+
             if owner is None:
                 raise EntityNotFoundError(
                     f"Owner {owner_user_id} not found"
@@ -111,14 +124,16 @@ class OpportunityService:
                 "value cannot be negative"
             )
 
-        if probability is not None and not (0 <= probability <= 100):
+        if probability is not None and not (
+            0 <= probability <= 100
+        ):
             raise BusinessRuleViolationError(
                 "probability must be between 0 and 100"
             )
 
-        return await self.repo.create(
+        opportunity = await self.repo.create(
             company_id=company_id,
-            org_id=self._org_id,
+            org_id=self._user.org_id,
             stage=stage,
             title=title,
             value=value,
@@ -126,6 +141,16 @@ class OpportunityService:
             probability=probability,
             expected_close_date=expected_close_date,
         )
+
+        await self.audit_service.log_create(
+            entity_type="opportunity",
+            entity_id=opportunity.id,
+            after_values=self.audit_service.build_opportunity_snapshot(
+                opportunity
+            ),
+        )
+
+        return opportunity
 
     # ------------------------------------------------------------------ #
     # READ
@@ -135,7 +160,6 @@ class OpportunityService:
         self,
         opportunity_id: str,
     ) -> Opportunity:
-        """Retrieve a single opportunity."""
 
         opportunity = await self.repo.get_by_id(
             opportunity_id
@@ -152,9 +176,10 @@ class OpportunityService:
         self,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[Opportunity]:
-        """List opportunities with optional filters."""
 
-        return await self.repo.list(**(filters or {}))
+        return await self.repo.list(
+            **(filters or {})
+        )
 
     # ------------------------------------------------------------------ #
     # UPDATE
@@ -171,10 +196,15 @@ class OpportunityService:
         probability: Optional[int] = None,
         expected_close_date: Optional[date] = None,
     ) -> Opportunity:
-        """Update an opportunity."""
 
         existing = await self.get_opportunity(
             opportunity_id
+        )
+
+        before_snapshot = (
+            self.audit_service.build_opportunity_snapshot(
+                existing
+            )
         )
 
         update_data: Dict[str, Any] = {}
@@ -236,7 +266,17 @@ class OpportunityService:
                 f"Opportunity {opportunity_id} not found"
             )
 
+        await self.audit_service.log_update(
+            entity_type="opportunity",
+            entity_id=updated.id,
+            before_values=before_snapshot,
+            after_values=self.audit_service.build_opportunity_snapshot(
+                updated
+            ),
+        )
+
         return updated
+    
 
     # ------------------------------------------------------------------ #
     # DELETE
@@ -248,9 +288,28 @@ class OpportunityService:
     ) -> bool:
         """Delete an opportunity."""
 
-        await self.get_opportunity(opportunity_id)
+        opportunity = await self.get_opportunity(
+            opportunity_id
+        )
 
-        return await self.repo.delete(opportunity_id)
+        before_snapshot = (
+            self.audit_service.build_opportunity_snapshot(
+                opportunity
+            )
+        )
+
+        deleted = await self.repo.delete(
+            opportunity_id
+        )
+
+        if deleted:
+            await self.audit_service.log_delete(
+                entity_type="opportunity",
+                entity_id=opportunity.id,
+                before_values=before_snapshot,
+            )
+
+        return deleted
 
     # ------------------------------------------------------------------ #
     # BUSINESS HELPERS
@@ -263,12 +322,20 @@ class OpportunityService:
     ) -> Opportunity:
         """Change opportunity stage."""
 
-        await self.get_opportunity(opportunity_id)
+        opportunity = await self.get_opportunity(
+            opportunity_id
+        )
 
         if new_stage not in VALID_STAGES:
             raise BusinessRuleViolationError(
                 f"Invalid stage: {new_stage}"
             )
+
+        before_snapshot = (
+            self.audit_service.build_opportunity_snapshot(
+                opportunity
+            )
+        )
 
         updated = await self.repo.update(
             opportunity_id,
@@ -280,6 +347,15 @@ class OpportunityService:
                 f"Opportunity {opportunity_id} not found"
             )
 
+        await self.audit_service.log_update(
+            entity_type="opportunity",
+            entity_id=updated.id,
+            before_values=before_snapshot,
+            after_values=self.audit_service.build_opportunity_snapshot(
+                updated
+            ),
+        )
+
         return updated
 
     async def assign_owner(
@@ -289,7 +365,9 @@ class OpportunityService:
     ) -> Opportunity:
         """Assign a new owner."""
 
-        await self.get_opportunity(opportunity_id)
+        opportunity = await self.get_opportunity(
+            opportunity_id
+        )
 
         owner = await self.user_repo.get_by_id(
             new_owner_id
@@ -300,6 +378,12 @@ class OpportunityService:
                 f"Owner {new_owner_id} not found"
             )
 
+        before_snapshot = (
+            self.audit_service.build_opportunity_snapshot(
+                opportunity
+            )
+        )
+
         updated = await self.repo.update(
             opportunity_id,
             owner_user_id=new_owner_id,
@@ -309,5 +393,14 @@ class OpportunityService:
             raise EntityNotFoundError(
                 f"Opportunity {opportunity_id} not found"
             )
+
+        await self.audit_service.log_update(
+            entity_type="opportunity",
+            entity_id=updated.id,
+            before_values=before_snapshot,
+            after_values=self.audit_service.build_opportunity_snapshot(
+                updated
+            ),
+        )
 
         return updated

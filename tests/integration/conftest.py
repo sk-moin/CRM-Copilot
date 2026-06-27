@@ -14,9 +14,9 @@ from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
-
+from packages.database.models import AuditLog, AuditAction, Organization, Tenant, User
 from fastapi.testclient import TestClient
-
+import uuid
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     create_async_engine,
@@ -238,3 +238,31 @@ async def seeded_company(
     )
 
     return company
+
+
+
+@pytest_asyncio.fixture(scope="function")
+async def audit_log(
+    _async_session,
+    seeded_user,
+    seeded_organization,
+):
+    log = AuditLog(
+        tenant_id=seeded_user.tenant_id,
+        org_id=seeded_organization.id,
+        user_id=seeded_user.id,
+        entity_type="company",
+        entity_id=uuid.uuid4(),
+        action=AuditAction.CREATE,
+        after_values={"name": "Acme Inc"},
+        event_metadata={"source": "pytest"},
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        actor_type="USER",
+        correlation_id=uuid.uuid4(),
+    )
+
+    _async_session.add(log)
+    await _async_session.flush()
+
+    return log

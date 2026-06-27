@@ -4,9 +4,10 @@ from typing import Any, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from packages.database.models import company
 from packages.database.models.company import Company
 from packages.database.repositories.company_repository import CompanyRepository
-
+from app.services.audit_service import AuditService
 from app.services.exceptions import (
     EntityNotFoundError,
     BusinessRuleViolationError,
@@ -19,12 +20,19 @@ class CompanyService:
         session: AsyncSession,
         current_user: Any,
     ):
+        self._session = session
         self._user = current_user
         self.tenant_id = current_user.tenant_id
 
         self.repo = CompanyRepository(
             session=session,
             tenant_id=self.tenant_id,
+        )
+
+        self.audit_service = AuditService(
+            session=session,
+            tenant_id=self.tenant_id,
+            current_user=current_user,
         )
 
     # ------------------------------------------------------------------ #
@@ -55,7 +63,7 @@ class CompanyService:
                 "A company with this name already exists in the current tenant"
             )
 
-        return await self.repo.create(
+        company = await self.repo.create(
             name=name,
             industry=industry,
             website=website,
@@ -63,8 +71,18 @@ class CompanyService:
             email=email,
             address=address,
             org_id=self._user.org_id,
-            tenant_id=self.tenant_id,
         )
+
+        await self.audit_service.log_create(
+            entity_type="company",
+            entity_id=company.id,
+            after_values=self.audit_service.build_company_snapshot(company),
+        )
+
+
+        return company
+    
+    
 
     # ------------------------------------------------------------------ #
     # READ
@@ -87,6 +105,8 @@ class CompanyService:
         self,
     ) -> List[Company]:
         return await self.repo.list()
+    
+    
 
     # ------------------------------------------------------------------ #
     # UPDATE
@@ -104,6 +124,7 @@ class CompanyService:
         address: Optional[str] = None,
     ) -> Company:
         company = await self.get_company(company_id)
+        before_snapshot = self.audit_service.build_company_snapshot(company)
 
         update_data: dict[str, Any] = {}
 
@@ -155,6 +176,16 @@ class CompanyService:
             raise EntityNotFoundError(
                 f"Company {company_id} not found after update"
             )
+        
+
+        await self.audit_service.log_update(
+            entity_type="company",
+            entity_id=updated.id,
+            before_values=before_snapshot,
+            after_values=self.audit_service.build_company_snapshot(updated),
+        )
+
+        
 
         return updated
 
@@ -166,6 +197,17 @@ class CompanyService:
         self,
         company_id: str,
     ) -> bool:
-        await self.get_company(company_id)
+        company = await self.get_company(company_id)
 
-        return await self.repo.delete(company_id)
+        before_snapshot = self.audit_service.build_company_snapshot(company)
+
+        deleted = await self.repo.delete(company_id)
+
+        if deleted:
+            await self.audit_service.log_delete(
+                entity_type="company",
+                entity_id=company.id,
+                before_values=before_snapshot,
+            )
+
+        return deleted

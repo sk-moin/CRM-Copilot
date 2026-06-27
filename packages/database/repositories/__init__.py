@@ -19,6 +19,9 @@ from packages.database.repositories.task_repository import (
 from packages.database.repositories.note_repository import (
     NoteRepository,
 )
+from packages.database.repositories.base_repository import (
+    BaseRepository,
+)
 
 __all__ = [
     "CompanyRepository",
@@ -26,4 +29,5 @@ __all__ = [
     "OpportunityRepository",
     "TaskRepository",
     "NoteRepository",
+    "BaseRepository",
 ]
