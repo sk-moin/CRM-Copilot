@@ -6,6 +6,8 @@ Provides:
   corresponding ``User`` ORM object, and returns it for downstream services.
 * Service factories – one per core CRUD service, each receiving a DB session
   and the authenticated ``User``.
+* LLM provider factory.
+* Chat service factory.
 
 All imports are limited to the core utilities, repository layer, and service
 layer. No router code, no FastAPI app creation, and no side‑effects at import
@@ -28,6 +30,8 @@ from app.services.contact_service import ContactService
 from app.services.opportunity_service import OpportunityService
 from app.services.task_service import TaskService
 from app.services.audit_service import AuditService
+from app.services.chat_service import ChatService
+from app.services.llm.base import LLMProvider
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
@@ -110,6 +114,24 @@ def get_audit_service(
         current_user=current_user,
     )
 
+
+def get_llm_provider() -> LLMProvider:
+    """Factory that provides an LLMProvider instance for the request."""
+    from app.services.llm.providers.mock_provider import MockProvider
+    from app.core.config import Settings
+    settings = Settings()
+    return MockProvider(settings)
+
+
+def get_chat_service(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    provider: LLMProvider = Depends(get_llm_provider),
+) -> ChatService:
+    """Factory that provides a ``ChatService`` instance for the request."""
+    return ChatService(session=db, current_user=current_user, provider=provider)
+
+
 __all__ = [
     "get_current_user",
     "get_company_service",
@@ -117,4 +139,6 @@ __all__ = [
     "get_opportunity_service",
     "get_task_service",
     "get_audit_service",
+    "get_llm_provider",
+    "get_chat_service",
 ]

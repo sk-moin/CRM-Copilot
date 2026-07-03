@@ -76,6 +76,7 @@ class BaseRepository:
 
         self.session.add(instance)
         await self.session.flush()
+        await self.session.refresh(instance)
 
         return instance
 

@@ -1,63 +1,88 @@
-# app/core/config.py
 """Application configuration loaded from environment variables.
 
-Only the variables required by the auth subsystem are defined here.  All
-values are read lazily so that the module can be imported even when the
-environment is not fully populated (e.g. during tests that provide the
-variables program‑matically).
+The module defines a ``Settings`` Pydantic model that loads all configuration
+variables at runtime.  Individual constants are also exported for backward
+compatibility with existing code that expects module-level names.
 """
 
 import os
-from datetime import timedelta
 from typing import Final
 
-# ---------------------------------------------------------------------------
-# Required secret – the JWT signing key.  The spec mandates that it comes
-# exclusively from the environment (no config file fallback).
-# ---------------------------------------------------------------------------
-JWT_SECRET: Final[str] = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-    # Provide a deterministic fallback secret for testing environments.
-    JWT_SECRET = "test-secret"
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# ---------------------------------------------------------------------------
-# Token lifetimes – defaults follow the spec but can be overridden for
-# local testing or CI environments.
-# ---------------------------------------------------------------------------
-# Access token expires after 15 minutes (900 seconds) by default.
-ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = int(
-    os.getenv("ACCESS_TOKEN_EXPIRE_SECONDS", "900")
-)
 
-# Refresh token lives in Redis for 30 days (2592000 seconds) by default.
-REFRESH_TOKEN_TTL_SECONDS: Final[int] = int(
-    os.getenv("REFRESH_TOKEN_TTL_SECONDS", "2592000")
-)
+class Settings(BaseSettings):
+    """Typed settings for the CRM Copilot application.
 
-# ---------------------------------------------------------------------------
-# Redis connection – the spec does not prescribe a variable name, but a
-# conventional ``REDIS_URL`` works for both local development and cloud
-# providers.
-# ---------------------------------------------------------------------------
-REDIS_URL: Final[str] = os.getenv("REDIS_URL", "redis://localhost:6379")
+    Using a ``BaseSettings`` subclass provides automatic parsing of environment
+    variables and convenient defaults for development/test environments.
+    """
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",          
+    )
 
-# ---------------------------------------------------------------------------
-# Helper values used throughout the code base.
-# ---------------------------------------------------------------------------
-TOKEN_ALGORITHM: Final[str] = "HS256"
+    # Core auth settings
+    JWT_SECRET: str = Field(default_factory=lambda: os.getenv("JWT_SECRET", "test-secret"))
+    ACCESS_TOKEN_EXPIRE_SECONDS: int = Field(default=900, env="ACCESS_TOKEN_EXPIRE_SECONDS")
+    REFRESH_TOKEN_TTL_SECONDS: int = Field(default=2592000, env="REFRESH_TOKEN_TTL_SECONDS")
+    REDIS_URL: str = Field(default="redis://localhost:6379", env="REDIS_URL")
+    TOKEN_ALGORITHM: str = Field(default="HS256", env="TOKEN_ALGORITHM")
+    JWT_ISSUER: str = Field(default="crm-copilot", env="JWT_ISSUER")
+    JWT_AUDIENCE: str = Field(default="crm-copilot-api", env="JWT_AUDIENCE")
 
-# ---------------------------------------------------------------------------
-# JWT identity – used to verify that access tokens were issued by this app for
-# this API.
-# ---------------------------------------------------------------------------
-JWT_ISSUER: Final[str] = os.getenv("JWT_ISSUER", "crm-copilot")
-JWT_AUDIENCE: Final[str] = os.getenv("JWT_AUDIENCE", "crm-copilot-api")
+    # OpenAI provider configuration
+    OPENAI_API_KEY: str = Field(default="", env="OPENAI_API_KEY")
+    OPENAI_MODEL: str = Field(default="gpt-4o", env="OPENAI_MODEL")
+    OPENAI_TIMEOUT: float = Field(default=60.0, env="OPENAI_TIMEOUT")
+    OPENAI_MAX_RETRIES: int = Field(default=3, env="OPENAI_MAX_RETRIES")
 
-# Export a convenient namespace for ``from app.core import config``
+
+# Instantiate a single Settings object for module‑level constants.
+_settings = Settings()
+
+# Backward‑compatible constants – existing modules import these directly.
+JWT_SECRET: Final[str] = _settings.JWT_SECRET
+ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = _settings.ACCESS_TOKEN_EXPIRE_SECONDS
+REFRESH_TOKEN_TTL_SECONDS: Final[int] = _settings.REFRESH_TOKEN_TTL_SECONDS
+REDIS_URL: Final[str] = _settings.REDIS_URL
+TOKEN_ALGORITHM: Final[str] = _settings.TOKEN_ALGORITHM
+JWT_ISSUER: Final[str] = _settings.JWT_ISSUER
+JWT_AUDIENCE: Final[str] = _settings.JWT_AUDIENCE
+
+OPENAI_API_KEY: Final[str] = _settings.OPENAI_API_KEY
+OPENAI_MODEL: Final[str] = _settings.OPENAI_MODEL
+OPENAI_TIMEOUT: Final[float] = _settings.OPENAI_TIMEOUT
+OPENAI_MAX_RETRIES: Final[int] = _settings.OPENAI_MAX_RETRIES
+
+
+_settings = Settings()
+
+
+def get_settings() -> Settings:
+    """
+    Return the singleton application settings.
+
+    Using a singleton prevents re-reading the environment every time
+    a dependency requests the configuration.
+    """
+    return _settings
+
 __all__ = [
+    "Settings",
+    "get_settings",
     "JWT_SECRET",
     "ACCESS_TOKEN_EXPIRE_SECONDS",
     "REFRESH_TOKEN_TTL_SECONDS",
     "REDIS_URL",
     "TOKEN_ALGORITHM",
+    "JWT_ISSUER",
+    "JWT_AUDIENCE",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "OPENAI_TIMEOUT",
+    "OPENAI_MAX_RETRIES",
 ]

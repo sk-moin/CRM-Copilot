@@ -3,7 +3,7 @@
 - 001 Auth & RBAC     ✅
 - 002 CRM Core        ✅
 - 003 Audit & Activity ✅
-- 004 Streaming Chat
+- 004 Streaming Chat  ✅
 - 005 RAG Pipeline
 - 006 Retrieval Observability
 - 007 AI Agent

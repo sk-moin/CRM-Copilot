@@ -9,6 +9,7 @@ from app.api.routes.contact import router as contact_router
 from app.api.routes.opportunity import router as opportunity_router
 from app.api.routes.task import router as task_router
 from app.api.routes import audit
+from app.api.routes.chat import router as chat_router
 
 app = FastAPI(
     title="CRM Copilot API",
@@ -28,3 +29,4 @@ app.include_router(contact_router, prefix="/contacts", tags=["Contacts"])
 app.include_router(opportunity_router, prefix="/opportunities", tags=["Opportunities"])
 app.include_router(task_router, prefix="/tasks", tags=["Tasks"])
 app.include_router(audit.router)
+app.include_router(chat_router)

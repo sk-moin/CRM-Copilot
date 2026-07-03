@@ -1,6 +1,7 @@
-# Decision 004 – Multi‑tenancy strategy
+# Decision – Multi‑tenancy strategy
 
-**Scope**: This decision documents how the codebase enforces tenant isolation and where the responsibility for validating cross‑model tenant ownership lies.
+**Scope**: This decision
+ documents how the codebase enforces tenant isolation and where the responsibility for validating cross‑model tenant ownership lies.
 
 - `BaseRepository` provides generic, tenant‑scoped CRUD operations using the
   `tenant_scoped_query` helper. It **does not** validate that foreign‑key

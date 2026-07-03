@@ -18,7 +18,8 @@ from .contact import Contact
 from .opportunity import Opportunity
 from .task import Task
 from .note import Note
-
+from .conversation import Conversation, ConversationStatus
+from .message import Message, MessageRole
 # Audit
 from .audit import AuditLog, AuditAction
 
@@ -33,5 +34,9 @@ __all__ = [
     "Task", 
     "Note",
     "AuditLog",
-    "AuditAction"
+    "AuditAction",
+    "Conversation",
+    "ConversationStatus",
+    "Message",
+    "MessageRole",
 ]
