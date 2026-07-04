@@ -375,18 +375,14 @@ Ready for retrieval augmentation and advanced AI workflows.
 
 # Next Specification
 
-Spec 005 — Prompt Management
+Spec 005 — RAG Pipeline
 
 Planned scope:
 
-- Prompt template model
-- Prompt versioning
-- Prompt repository
-- Prompt service
-- System prompt management
-- Environment-specific prompts
-- Prompt caching
-- Prompt audit logging
-- ChatService integration with PromptService
-
-This will replace the current static PromptBuilder system prompt with dynamic, version-controlled prompt management while preserving the existing ChatService architecture.
+- Document ingestion
+- Chunking
+- Embeddings
+- Vector store
+- Retrieval service
+- Context builder
+- Retrieval integrated into ChatService
