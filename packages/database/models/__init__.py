@@ -23,6 +23,9 @@ from .message import Message, MessageRole
 # Audit
 from .audit import AuditLog, AuditAction
 
+from .enums import DocumentProcessingStatus
+from .document_chunk import DocumentChunk
+from .knowledge_document import KnowledgeDocument
 
 __all__ = [
     "Tenant",
@@ -39,4 +42,7 @@ __all__ = [
     "ConversationStatus",
     "Message",
     "MessageRole",
+    "DocumentProcessingStatus",
+    "DocumentChunk",
+    "KnowledgeDocument",
 ]

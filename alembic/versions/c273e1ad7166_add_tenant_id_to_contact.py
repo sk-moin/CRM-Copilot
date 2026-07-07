@@ -43,3 +43,8 @@ def upgrade() -> None:
         ["tenant_id"],
         unique=False,
     )
+
+def downgrade() -> None:
+    op.drop_index("ix_contact_tenant_id", table_name="contact")
+    op.drop_constraint("fk_contact_tenant_id", "contact", type_="foreignkey")
+    op.drop_column("contact", "tenant_id")
