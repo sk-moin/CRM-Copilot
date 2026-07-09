@@ -93,6 +93,12 @@ class Conversation(Base):
         order_by="Message.created_at",
     )
 
+    retrieval_traces = relationship(
+        "RetrievalTrace",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         Index(
             "ix_conversation_tenant_user",

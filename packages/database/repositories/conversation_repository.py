@@ -10,6 +10,7 @@ from packages.database.repositories.base_repository import BaseRepository
 from packages.database.models.conversation import Conversation
 from datetime import datetime, UTC
 
+
 class ConversationRepository(BaseRepository):
     """Repository for the ``Conversation`` model."""
 
@@ -29,7 +30,9 @@ class ConversationRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def update(self, conversation_id: UUID, **data: Any) -> Optional[Conversation]:
+    async def update(
+        self, conversation_id: UUID, **data: Any
+    ) -> Optional[Conversation]:
         """
         Update a conversation. Only ``title`` and ``status`` may be modified.
         Ownership is enforced – the tenant_id cannot be changed.
@@ -91,11 +94,7 @@ class ConversationRepository(BaseRepository):
         if status:
             stmt = stmt.where(self.model.status == status)
 
-        stmt = (
-            stmt.order_by(desc(self.model.created_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = stmt.order_by(desc(self.model.created_at)).offset(offset).limit(limit)
 
         result = await self.session.execute(stmt)
         return result.scalars().all()

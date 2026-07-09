@@ -10,6 +10,7 @@ from typing import AsyncGenerator
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+
 # Add repo root BEFORE importing project modules
 repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
@@ -105,6 +106,96 @@ async def user(
     return user
 
 
-# --------------------------------------------------------------------------- #
-# Audit Log
-# --------------------------------------------------------------------------- #
+from packages.database.models import (
+    KnowledgeDocument,
+    DocumentChunk,
+    Conversation,
+)
+
+from packages.database.repositories.retrieval_trace_repository import (
+    RetrievalTraceRepository,
+)
+
+
+@pytest_asyncio.fixture
+async def retrieval_trace(
+    async_session,
+    tenant,
+):
+    repo = RetrievalTraceRepository(
+        async_session,
+        tenant.id,
+    )
+
+    trace = await repo.create(
+        conversation_id=None,
+        query="Repository test",
+    )
+
+    return trace
+
+
+@pytest_asyncio.fixture
+async def knowledge_document(
+    async_session,
+    tenant,
+    organization,
+):
+    document = KnowledgeDocument(
+        tenant_id=tenant.id,
+        organization_id=organization.id,
+        owner_id=None,
+        title="Repository Document",
+        filename="document.pdf",
+        storage_path="/tmp/document.pdf",
+        document_type="pdf",
+        source_type="upload",
+        mime_type="application/pdf",
+        file_size=100,
+    )
+
+    async_session.add(document)
+    await async_session.flush()
+
+    return document
+
+
+@pytest_asyncio.fixture
+async def document_chunk(
+    async_session,
+    tenant,
+    knowledge_document,
+):
+    chunk = DocumentChunk(
+        tenant_id=tenant.id,
+        document_id=knowledge_document.id,
+        chunk_index=0,
+        content="Repository chunk",
+        token_count=8,
+        start_char=0,
+        end_char=16,
+    )
+
+    async_session.add(chunk)
+    await async_session.flush()
+
+    return chunk
+
+@pytest_asyncio.fixture
+async def conversation(
+    async_session,
+    tenant,
+    organization,
+    user,
+):
+    conversation = Conversation(
+        tenant_id=tenant.id,
+        org_id=organization.id,
+        user_id=user.id,
+        title="Test Conversation",
+    )
+
+    async_session.add(conversation)
+    await async_session.flush()
+
+    return conversation

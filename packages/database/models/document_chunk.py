@@ -25,3 +25,9 @@ class DocumentChunk(Base):
 
     # Relationship
     document = relationship("KnowledgeDocument", back_populates="chunks")
+
+    retrievals = relationship(
+        "RetrievedChunk",
+        back_populates="chunk",
+        cascade="all, delete-orphan",
+    )

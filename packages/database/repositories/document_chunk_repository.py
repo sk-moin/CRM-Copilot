@@ -96,9 +96,7 @@ class DocumentChunkRepository(BaseRepository):
         conditions = []
 
         for key, value in filters.items():
-            conditions.append(
-                self.model.chunk_metadata[key].as_string() == str(value)
-            )
+            conditions.append(self.model.chunk_metadata[key].as_string() == str(value))
 
         stmt = select(self.model).where(
             self.model.tenant_id == self.tenant_id,

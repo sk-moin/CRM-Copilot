@@ -58,3 +58,9 @@ class KnowledgeDocument(Base):
         cascade="all, delete-orphan",
         order_by="DocumentChunk.chunk_index",
     )
+
+    retrieved_chunks = relationship(
+        "RetrievedChunk",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )

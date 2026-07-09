@@ -1,18 +1,7 @@
-"""Re‑export database models for easy imports.
-
-The project code and tests can now do:
-
-    from packages.database.models import Base, Tenant, Organization, User
-
-instead of importing each model individually.
-"""
-
 from .base import Base
 from .tenant import Tenant
 from .organization import Organization
 from .user import User
-
-# CRM Core
 from .company import Company
 from .contact import Contact
 from .opportunity import Opportunity
@@ -20,12 +9,12 @@ from .task import Task
 from .note import Note
 from .conversation import Conversation, ConversationStatus
 from .message import Message, MessageRole
-# Audit
 from .audit import AuditLog, AuditAction
-
 from .enums import DocumentProcessingStatus
 from .document_chunk import DocumentChunk
 from .knowledge_document import KnowledgeDocument
+from .retrieval_trace import RetrievalTrace
+from .retrieved_chunk import RetrievedChunk
 
 __all__ = [
     "Tenant",
@@ -34,7 +23,7 @@ __all__ = [
     "Company",
     "Contact",
     "Opportunity",
-    "Task", 
+    "Task",
     "Note",
     "AuditLog",
     "AuditAction",
@@ -45,4 +34,6 @@ __all__ = [
     "DocumentProcessingStatus",
     "DocumentChunk",
     "KnowledgeDocument",
+    "RetrievalTrace",
+    "RetrievedChunk",
 ]

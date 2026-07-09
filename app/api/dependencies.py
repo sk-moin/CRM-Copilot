@@ -32,6 +32,15 @@ from app.services.task_service import TaskService
 from app.services.audit_service import AuditService
 from app.services.chat_service import ChatService
 from app.services.llm.base import LLMProvider
+from app.services.retrieval_trace_service import RetrievalTraceService
+from app.services.retrieved_chunk_service import RetrievedChunkService
+
+from packages.database.repositories.retrieval_trace_repository import (
+    RetrievalTraceRepository,
+)
+from packages.database.repositories.retrieved_chunk_repository import (
+    RetrievedChunkRepository,
+)
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
@@ -131,6 +140,27 @@ def get_chat_service(
     """Factory that provides a ``ChatService`` instance for the request."""
     return ChatService(session=db, current_user=current_user, provider=provider)
 
+def get_retrieval_trace_service(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RetrievalTraceService:
+    repository = RetrievalTraceRepository(
+        db,
+        current_user.tenant_id,
+    )
+    return RetrievalTraceService(repository)
+
+
+def get_retrieved_chunk_service(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RetrievedChunkService:
+    repository = RetrievedChunkRepository(
+        db,
+        current_user.tenant_id,
+    )
+    return RetrievedChunkService(repository)
+
 
 __all__ = [
     "get_current_user",
@@ -141,4 +171,6 @@ __all__ = [
     "get_audit_service",
     "get_llm_provider",
     "get_chat_service",
+    "get_retrieval_trace_service",
+    "get_retrieved_chunk_service",
 ]

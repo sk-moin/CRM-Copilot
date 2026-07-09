@@ -10,37 +10,35 @@ Provides:
 - Seeded tenant / organization / user hierarchy.
 """
 
+from __future__ import annotations
+
+import uuid
 from typing import AsyncGenerator
 
-import pytest
 import pytest_asyncio
-from packages.database.models import AuditLog, AuditAction, Organization, Tenant, User
-from fastapi.testclient import TestClient
-import uuid
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    create_async_engine,
-)
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.main import app
-from app.core.database import get_db
 from app.api.dependencies import get_current_user
-from httpx import AsyncClient, ASGITransport
-from packages.database.models.base import Base
+from app.core.database import get_db
+from app.main import app
+
 from packages.database.models import (
-    Tenant,
+    AuditAction,
+    AuditLog,
     Organization,
+    Tenant,
     User,
 )
 
+from packages.database.repositories.company_repository import (
+    CompanyRepository,
+)
 from packages.database.repositories.organization_repository import (
     OrganizationRepository,
 )
 from packages.database.repositories.user_repository import (
     UserRepository,
-)
-from packages.database.repositories.company_repository import (
-    CompanyRepository,
 )
 
 # --------------------------------------------------------------------------- #
@@ -54,15 +52,12 @@ TEST_DATABASE_URL = (
 
 @pytest_asyncio.fixture(scope="function")
 async def _engine():
-    """
-    Shared PostgreSQL engine for integration tests.
-    """
+    """Shared PostgreSQL engine."""
 
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
     )
-
 
     yield engine
 
@@ -73,14 +68,12 @@ async def _engine():
 # Session
 # --------------------------------------------------------------------------- #
 
+
 @pytest_asyncio.fixture(scope="function")
 async def _async_session(
     _engine,
 ) -> AsyncGenerator[AsyncSession, None]:
-    """
-    Fresh transaction per test.
-    Rolls back after completion.
-    """
+    """Fresh transaction for every test."""
 
     async with _engine.connect() as conn:
         transaction = await conn.begin()
@@ -97,9 +90,23 @@ async def _async_session(
             await transaction.rollback()
 
 
+# Compatibility aliases
+@pytest_asyncio.fixture(scope="function")
+async def db_session(_async_session):
+    """Alias used by repository/integration tests."""
+    yield _async_session
+
+
+@pytest_asyncio.fixture(scope="function")
+async def async_session(_async_session):
+    """Alias used by older tests."""
+    yield _async_session
+
+
 # --------------------------------------------------------------------------- #
-# Client (unauthenticated)
+# Client
 # --------------------------------------------------------------------------- #
+
 
 @pytest_asyncio.fixture(scope="function")
 async def client(_async_session):
@@ -122,13 +129,12 @@ async def client(_async_session):
 # Seed data
 # --------------------------------------------------------------------------- #
 
+
 @pytest_asyncio.fixture(scope="function")
 async def seeded_tenant(
     _async_session,
 ) -> Tenant:
-    """
-    Create test tenant.
-    """
+    """Create test tenant."""
 
     tenant = Tenant(
         name="Test Tenant",
@@ -146,22 +152,18 @@ async def seeded_organization(
     seeded_tenant,
     _async_session,
 ) -> Organization:
-    """
-    Create organization.
-    """
+    """Create organization."""
 
     repo = OrganizationRepository(
         session=_async_session,
         tenant_id=seeded_tenant.id,
     )
 
-    organization = await repo.create(
+    return await repo.create(
         name="Test Organization",
         subdomain="test-org",
         tenant_id=seeded_tenant.id,
     )
-
-    return organization
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -169,16 +171,14 @@ async def seeded_user(
     seeded_organization,
     _async_session,
 ) -> User:
-    """
-    Create authenticated user.
-    """
+    """Create authenticated user."""
 
     repo = UserRepository(
         session=_async_session,
         tenant_id=seeded_organization.tenant_id,
     )
 
-    user = await repo.create(
+    return await repo.create(
         email="test-user@example.com",
         password_hash="integration-test-hash",
         role="OWNER",
@@ -186,59 +186,25 @@ async def seeded_user(
         tenant_id=seeded_organization.tenant_id,
     )
 
-    return user
-
-
-# --------------------------------------------------------------------------- #
-# Authenticated client
-# --------------------------------------------------------------------------- #
-
-@pytest_asyncio.fixture(scope="function")
-async def authed_client(
-    _async_session,
-    seeded_user,
-):
-
-    async def override_get_db():
-        yield _async_session
-
-    async def override_get_current_user():
-        return seeded_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = (
-        override_get_current_user
-    )
-
-    async with AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://test",
-    ) as client:
-        yield client
-
-    app.dependency_overrides.clear()
-
-
 
 @pytest_asyncio.fixture(scope="function")
 async def seeded_company(
     seeded_organization,
     _async_session,
 ):
+    """Create company."""
+
     repo = CompanyRepository(
         session=_async_session,
         tenant_id=seeded_organization.tenant_id,
     )
 
-    company = await repo.create(
+    return await repo.create(
         name="Test Company",
         industry="Technology",
         org_id=seeded_organization.id,
         tenant_id=seeded_organization.tenant_id,
     )
-
-    return company
-
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -247,6 +213,8 @@ async def audit_log(
     seeded_user,
     seeded_organization,
 ):
+    """Create audit log."""
+
     log = AuditLog(
         tenant_id=seeded_user.tenant_id,
         org_id=seeded_organization.id,
@@ -266,3 +234,35 @@ async def audit_log(
     await _async_session.flush()
 
     return log
+
+
+# --------------------------------------------------------------------------- #
+# Authenticated client
+# --------------------------------------------------------------------------- #
+
+
+@pytest_asyncio.fixture(scope="function")
+async def authed_client(
+    _async_session,
+    seeded_user,
+):
+    """Authenticated HTTP client."""
+
+    async def override_get_db():
+        yield _async_session
+
+    async def override_get_current_user():
+        return seeded_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = (
+        override_get_current_user
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        yield client
+
+    app.dependency_overrides.clear()

@@ -169,7 +169,6 @@ class AuditRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
-
     async def count_for_user(
         self,
         *,
@@ -205,11 +204,7 @@ class AuditRepository(BaseRepository):
         return result.scalar_one()
 
     async def update(self, *_, **__):
-        raise NotImplementedError(
-            "Audit logs are immutable; update is not allowed."
-        )
+        raise NotImplementedError("Audit logs are immutable; update is not allowed.")
 
     async def delete(self, *_, **__):
-        raise NotImplementedError(
-            "Audit logs are immutable; delete is not allowed."
-        )
+        raise NotImplementedError("Audit logs are immutable; delete is not allowed.")
