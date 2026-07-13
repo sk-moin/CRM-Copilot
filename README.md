@@ -4,7 +4,7 @@
 - 002 CRM Core        ✅
 - 003 Audit & Activity ✅
 - 004 Streaming Chat  ✅
-- 005 RAG Pipeline    ✅
+- 005 RAG Foundation    ✅
 - 006 Retrieval Observability ✅
 - 007 AI Agent
 - 008 Prompt Management

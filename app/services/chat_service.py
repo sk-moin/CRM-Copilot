@@ -1,12 +1,14 @@
-"""ChatService – orchestrates chat workflow with LLM provider and conversation management.
+"""
+ChatService – orchestrates chat workflow with Retrieval-Augmented Generation.
 
-Responsibilities:
+Responsibilities
+----------------
 * Validate conversation access
 * Persist user message
 * Load conversation history
-* Build prompt using PromptBuilder
-* Stream provider response
-* Persist assistant message with provider metadata
+* Execute RAG pipeline
+* Stream assistant response
+* Persist assistant message
 * Emit audit events
 """
 
@@ -20,72 +22,104 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.rag.rag_service import RAGService
 from app.services.audit_service import AuditService
-from app.services.llm.base import LLMProvider
-from app.services.llm.models import StreamChunk, TokenUsage
+from app.services.llm.models import (
+    StreamChunk,
+    TokenUsage,
+)
 from app.services.llm.prompt_builder import PromptBuilder
+
 from packages.database.models.message import MessageRole
 from packages.database.repositories.conversation_repository import (
     ConversationRepository,
 )
-from packages.database.repositories.message_repository import MessageRepository
+from packages.database.repositories.message_repository import (
+    MessageRepository,
+)
 
 
 class ChatService:
+    """
+    Service responsible for conversation orchestration.
+
+    ChatService owns:
+
+    - conversation validation
+    - message persistence
+    - audit logging
+    - conversation history
+
+    It delegates Retrieval-Augmented Generation to RAGService.
+    """
+
     def __init__(
         self,
         session: AsyncSession,
         current_user: Any,
-        provider: LLMProvider,
-    ):
+        rag_service: RAGService,
+    ) -> None:
         self._session = session
         self._user = current_user
         self._tenant_id = current_user.tenant_id
-        self._provider = provider
+
+        self._rag_service = rag_service
 
         self._conversation_repo = ConversationRepository(
             session=session,
             tenant_id=self._tenant_id,
         )
+
         self._message_repo = MessageRepository(
             session=session,
             tenant_id=self._tenant_id,
         )
+
         self._audit = AuditService(
             session=session,
             tenant_id=self._tenant_id,
             current_user=current_user,
         )
 
+    
     async def stream_response(
         self,
         conversation_id: UUID,
         user_message: str,
     ) -> AsyncIterator[StreamChunk]:
-        """Stream an LLM response for a conversation."""
+        """
+        Stream a Retrieval-Augmented response for a conversation.
+        """
 
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
         # Validate conversation ownership
-        # ------------------------------------------------------------------
-        conversation = await self._conversation_repo.get_by_id(conversation_id)
+        # ------------------------------------------------------------------ #
+
+        conversation = await self._conversation_repo.get_by_id(
+            conversation_id,
+        )
 
         if conversation is None:
-            raise ValueError(f"Conversation {conversation_id} not found")
+            raise ValueError(
+                f"Conversation {conversation_id} not found."
+            )
 
         if conversation.user_id != self._user.id:
             raise PermissionError(
-                f"Access denied to conversation {conversation_id}"
+                f"Access denied to conversation {conversation_id}."
             )
 
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
         # Persist user message
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
+
         user_msg = await self._message_repo.create(
             conversation_id=conversation_id,
             role=MessageRole.USER,
             content=user_message,
             tenant_id=self._tenant_id,
         )
+
         await self._session.flush()
 
         await self._audit.log_create(
@@ -97,9 +131,10 @@ class ChatService:
             },
         )
 
-        # ------------------------------------------------------------------
-        # Build prompt
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
+        # Load conversation history
+        # ------------------------------------------------------------------ #
+
         history = await self._message_repo.list_for_conversation(
             conversation_id=conversation_id,
             limit=100,
@@ -111,18 +146,26 @@ class ChatService:
             user_message=user_message,
         )
 
-        # ------------------------------------------------------------------
-        # Stream provider response
-        # ------------------------------------------------------------------
+        # Currently PromptBuilder is kept for conversation history.
+        # RAGService receives only the latest user query.
+        # Future versions can pass prompt_messages into RAGChain if desired.
+
         start_time = time.time()
 
         full_response = ""
         usage = TokenUsage.empty()
         finish_reason = "stop"
 
-        async for chunk in self._provider.stream(prompt_messages):
 
-            # Provider's final chunk contains metadata only.
+        # ------------------------------------------------------------------ #
+        # Stream RAG response
+        # ------------------------------------------------------------------ #
+
+        async for chunk in self._rag_service.stream(
+            conversation_id=conversation_id,
+            query=user_message,
+        ):
+        # Final chunk contains metadata only.
             if chunk.is_final:
                 finish_reason = chunk.finish_reason or "stop"
 
@@ -136,10 +179,13 @@ class ChatService:
 
             yield chunk
 
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
         # Persist assistant message
-        # ------------------------------------------------------------------
-        latency_ms = int((time.time() - start_time) * 1000)
+        # ------------------------------------------------------------------ #
+
+        latency_ms = int(
+            (time.time() - start_time) * 1000,
+        )
 
         assistant_msg = await self._message_repo.create(
             conversation_id=conversation_id,
@@ -155,17 +201,19 @@ class ChatService:
 
         await self._session.flush()
 
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
         # Update conversation timestamp
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
+
         await self._conversation_repo.update(
             conversation_id,
             updated_at=datetime.now(UTC),
         )
 
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
         # Audit assistant message
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
+
         await self._audit.log_create(
             entity_type="message",
             entity_id=assistant_msg.id,
@@ -181,9 +229,16 @@ class ChatService:
             },
         )
 
-        # ------------------------------------------------------------------
-        # Emit single final chunk
-        # ------------------------------------------------------------------
+        # ------------------------------------------------------------------ #
+        # Commit transaction
+        # ------------------------------------------------------------------ #
+
+        await self._session.commit()
+
+        # ------------------------------------------------------------------ #
+        # Emit final metadata chunk
+        # ------------------------------------------------------------------ #
+
         yield StreamChunk(
             finish_reason=finish_reason,
             usage=usage,

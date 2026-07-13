@@ -84,17 +84,13 @@ class StreamChunk:
         message_id:
             ID of the assistant message (populated only on final chunk).
     """
-
+    is_final: bool = False
     token: Optional[str] = None
     finish_reason: Optional[str] = None
     usage: Optional[TokenUsage] = None
     conversation_id: Optional[UUID] = None
     message_id: Optional[UUID] = None
 
-    @property
-    def is_final(self) -> bool:
-        """Return True if this is the final stream chunk."""
-        return self.finish_reason is not None or self.usage is not None
 
     @classmethod
     def token_chunk(cls, token: str) -> "StreamChunk":

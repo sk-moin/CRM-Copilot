@@ -4,10 +4,11 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
-
+from unittest.mock import AsyncMock
 from app.services.chat_service import ChatService
 from app.services.llm.providers.mock_provider import MockProvider
 from app.core.config import get_settings
+from app.services.llm.models import StreamChunk, TokenUsage
 
 from packages.database.repositories.conversation_repository import (
     ConversationRepository,
@@ -45,12 +46,32 @@ def mock_provider():
     return MockProvider(get_settings())
 
 
+
+
 @pytest_asyncio.fixture
-async def chat_service(async_session, user, mock_provider):
+async def chat_service(async_session, user):
+
+    class FakeRAGService:
+        async def stream(self, conversation_id, query):
+            usage = TokenUsage(
+                prompt_tokens=8,
+                completion_tokens=4,
+                total_tokens=12,
+                model="mock-model",
+            )
+
+            yield StreamChunk(token="Mock ")
+            yield StreamChunk(token="response")
+            yield StreamChunk(
+                is_final=True,
+                finish_reason="stop",
+                usage=usage,
+            )
+
     return ChatService(
         session=async_session,
         current_user=user,
-        provider=mock_provider,
+        rag_service=FakeRAGService(),
     )
 
 
@@ -178,10 +199,12 @@ async def test_permission_denied(
         status=ConversationStatus.ACTIVE,
     )
 
+    rag_service = AsyncMock()
+
     service = ChatService(
         session=async_session,
         current_user=user,
-        provider=mock_provider,
+        rag_service=rag_service,
     )
 
     with pytest.raises(PermissionError):

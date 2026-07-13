@@ -40,6 +40,21 @@ class Settings(BaseSettings):
     OPENAI_TIMEOUT: float = Field(default=60.0, env="OPENAI_TIMEOUT")
     OPENAI_MAX_RETRIES: int = Field(default=3, env="OPENAI_MAX_RETRIES")
 
+    EMBEDDING_PROVIDER: str = Field(
+    default="openai",
+    env="EMBEDDING_PROVIDER",
+    )
+
+    EMBEDDING_MODEL: str = Field(
+        default="text-embedding-3-small",
+        env="EMBEDDING_MODEL",
+    )
+
+    OPENAI_BASE_URL: str | None = Field(
+        default=None,
+        env="OPENAI_BASE_URL",
+    )
+
 
 # Instantiate a single Settings object for module‑level constants.
 _settings = Settings()
@@ -57,6 +72,7 @@ OPENAI_API_KEY: Final[str] = _settings.OPENAI_API_KEY
 OPENAI_MODEL: Final[str] = _settings.OPENAI_MODEL
 OPENAI_TIMEOUT: Final[float] = _settings.OPENAI_TIMEOUT
 OPENAI_MAX_RETRIES: Final[int] = _settings.OPENAI_MAX_RETRIES
+
 
 
 _settings = Settings()

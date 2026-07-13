@@ -8,3 +8,4 @@ class DocumentProcessingStatus(str, Enum):
     EMBEDDING = "EMBEDDING"
     READY = "READY"
     FAILED = "FAILED"
+    COMPLETED = "COMPLETED"
