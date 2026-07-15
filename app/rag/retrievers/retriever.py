@@ -36,8 +36,10 @@ class RetrievalResult:
     documents: list[Document]
     similarity_scores: list[float]
 
+    retrieval_metadata: dict[str, object] = field(default_factory=dict)
+
     @property
-    def retrieved_chunks(self):
+    def retrieved_chunks(self) -> int:
         return len(self.documents)
    
 
@@ -91,6 +93,16 @@ class Retriever:
             if score >= score_threshold
         ]
 
+        retrieval_metadata = {
+            "retriever": {
+                "top_k": top_k,
+                "score_threshold": score_threshold,
+            },
+            "filters": {
+                "document_id": str(document_id) if document_id else None,
+            },
+        }
+
         documents = [
             doc
             for doc, _ in results
@@ -104,6 +116,7 @@ class Retriever:
         return RetrievalResult(
             documents=documents,
             similarity_scores=scores,
+            retrieval_metadata=retrieval_metadata,
         )
 
     # ------------------------------------------------------------------ #
@@ -149,9 +162,8 @@ class Retriever:
                 "Query cannot be empty."
             )
 
-        return await self.vector_store.search(
+        return await self.vector_store.similarity_search_with_scores(
             query=query,
-            top_k=top_k,
-            score_threshold=0.0,
+            k=top_k,
             document_id=document_id,
         )

@@ -73,7 +73,10 @@ class RetrievalService:
             query=query,
         )
 
+
         started_at = time.perf_counter()
+
+        retrieval_metadata: dict[str, object] = {}
 
         try:
             result = await self.retriever.retrieve(
@@ -82,6 +85,8 @@ class RetrievalService:
                 score_threshold=score_threshold,
                 document_id=document_id,
             )
+
+            retrieval_metadata=result.retrieval_metadata
 
             latency_ms = int(
                 (time.perf_counter() - started_at) * 1000
@@ -92,6 +97,7 @@ class RetrievalService:
                 retrieval_latency_ms=latency_ms,
                 total_latency_ms=latency_ms,
                 retrieved_chunk=result.retrieved_chunks,
+                retrieval_metadata=retrieval_metadata,
             )
 
             await self.trace_repository.update_status(
@@ -138,6 +144,7 @@ class RetrievalService:
                 trace.id,
                 retrieval_latency_ms=latency_ms,
                 total_latency_ms=latency_ms,
+                retrieval_metadata=retrieval_metadata,
             )
 
             await self.trace_repository.update_status(

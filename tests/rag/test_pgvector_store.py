@@ -444,7 +444,10 @@ async def test_similarity_search_with_scores(
         0.5,
     ]
 
-    repository.similarity_search.return_value = chunks
+    repository.similarity_search_with_scores.return_value = [
+        (chunks[0], 0.93),
+        (chunks[1], 0.88),
+    ]
 
     results = (
         await vector_store.similarity_search_with_scores(
@@ -458,8 +461,8 @@ async def test_similarity_search_with_scores(
         assert isinstance(document, Document)
         assert isinstance(score, float)
 
-    assert results[0][1] == 1.0
-    assert results[1][1] == 1.0
+    assert results[0][1] == pytest.approx(0.93)
+    assert results[1][1] == pytest.approx(0.88)
 
 
 @pytest.mark.asyncio
@@ -477,7 +480,7 @@ async def test_similarity_search_with_scores_document_filter(
         0.5,
     ]
 
-    repository.similarity_search.return_value = []
+    repository.similarity_search_with_scores.return_value = []
 
     document_id = uuid4()
 
@@ -486,7 +489,7 @@ async def test_similarity_search_with_scores_document_filter(
         document_id=document_id,
     )
 
-    kwargs = repository.similarity_search.await_args.kwargs
+    kwargs = repository.similarity_search_with_scores.await_args.kwargs
 
     assert kwargs["document_id"] == document_id
 
@@ -505,7 +508,7 @@ async def test_similarity_search_with_scores_empty_results(
         0.5,
     ]
 
-    repository.similarity_search.return_value = []
+    repository.similarity_search_with_scores.return_value = []
 
     results = (
         await vector_store.similarity_search_with_scores(

@@ -178,6 +178,51 @@ class DocumentChunkRepository(BaseRepository):
         result = await self.session.execute(stmt)
 
         return result.scalars().all()
+    
+
+    async def similarity_search_with_scores(
+        self,
+        embedding: list[float],
+        *,
+        limit: int = 5,
+        document_id: UUID | None = None,
+    ) -> list[tuple[DocumentChunk, float]]:
+        """
+        Return chunks together with cosine similarity scores.
+        """
+
+        distance = self.model.embedding.cosine_distance(
+            embedding
+        ).label("distance")
+
+        stmt = (
+            select(
+                self.model,
+                distance,
+            )
+            .where(
+                self.model.tenant_id == self.tenant_id,
+            )
+        )
+
+        if document_id is not None:
+            stmt = stmt.where(
+                self.model.document_id == document_id,
+            )
+
+        stmt = stmt.order_by(distance).limit(limit)
+
+        result = await self.session.execute(stmt)
+
+        rows = result.all()
+
+        return [
+            (
+                chunk,
+                max(0.0, 1.0 - float(distance)),
+            )
+            for chunk, distance in rows
+        ]
 
     # ------------------------------------------------------------------ #
     # Metadata

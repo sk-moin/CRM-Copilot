@@ -26,6 +26,7 @@ from packages.database.repositories.document_chunk_repository import (
 )
 
 
+
 class PGVectorStore:
     """High-level vector store built on DocumentChunkRepository."""
 
@@ -141,15 +142,17 @@ class PGVectorStore:
         repository support is added.
         """
 
-        documents = await self.similarity_search(
-            query=query,
-            k=k,
+        embedding = await self.embedding_provider.embed_query(query)
+
+        results = await self.repository.similarity_search_with_scores(
+            embedding=embedding,
+            limit=k,
             document_id=document_id,
         )
 
         return [
-            (document, 1.0)
-            for document in documents
+            (self._to_document(chunk), score)
+            for chunk, score in results
         ]
 
     # ------------------------------------------------------------------ #

@@ -89,6 +89,16 @@ class RetrievalTraceService:
             error_message=error_message,
         )
 
+    async def update_metrics(
+        self,
+        trace_id: UUID,
+        **kwargs: Any,
+    ) -> RetrievalTrace | None:
+        return await self.repository.update_metrics(
+            trace_id,
+            **kwargs,
+        )
+
     async def delete_trace(
         self,
         trace_id: UUID,
