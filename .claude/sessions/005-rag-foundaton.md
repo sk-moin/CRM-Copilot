@@ -23,6 +23,7 @@ This work provides the foundation for semantic search, AI chat, knowledge retrie
 
 Implemented the following database models.
 
+
 ### KnowledgeDocument
 
 Stores uploaded document metadata including:
@@ -34,6 +35,7 @@ Stores uploaded document metadata including:
 - owner
 - organization
 - timestamps
+
 
 ### DocumentChunk
 
