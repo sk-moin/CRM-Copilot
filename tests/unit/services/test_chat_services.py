@@ -51,27 +51,40 @@ def mock_provider():
 @pytest_asyncio.fixture
 async def chat_service(async_session, user):
 
-    class FakeRAGService:
-        async def stream(self, conversation_id, query):
-            usage = TokenUsage(
-                prompt_tokens=8,
-                completion_tokens=4,
-                total_tokens=12,
-                model="mock-model",
-            )
-
-            yield StreamChunk(token="Mock ")
-            yield StreamChunk(token="response")
-            yield StreamChunk(
-                is_final=True,
-                finish_reason="stop",
-                usage=usage,
-            )
+    class FakeAgentService:
+        async def run(
+            self,
+            *,
+            conversation_id,
+            tenant_id,
+            user_id,
+            query,
+        ):
+            return {
+                "conversation_id": conversation_id,
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "query": query,
+                "messages": [],
+                "retrieved_documents": [],
+                "retrieval_metadata": {},
+                "prompt": "",
+                "response": "Mock response",
+                "citations": [],
+                "usage": TokenUsage(
+                    prompt_tokens=8,
+                    completion_tokens=4,
+                    total_tokens=12,
+                    model="mock-model",
+                ),
+                "finish_reason": "stop",
+                "errors": [],
+            }
 
     return ChatService(
         session=async_session,
         current_user=user,
-        rag_service=FakeRAGService(),
+        agent_service=FakeAgentService(),
     )
 
 
@@ -199,12 +212,12 @@ async def test_permission_denied(
         status=ConversationStatus.ACTIVE,
     )
 
-    rag_service = AsyncMock()
+    agent_service = AsyncMock()
 
     service = ChatService(
         session=async_session,
         current_user=user,
-        rag_service=rag_service,
+        agent_service=agent_service,
     )
 
     with pytest.raises(PermissionError):

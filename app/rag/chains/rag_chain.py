@@ -16,13 +16,37 @@ service layer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from langchain_core.documents import Document
 
 from app.rag.exceptions import RAGGenerationError
 from app.rag.retrievers.retriever import RetrievalResult
 from app.services.llm.base import LLMProvider
+
+from app.services.llm.models import TokenUsage
+
+
+@dataclass(slots=True)
+class RAGResult:
+    """
+    Result returned by the RAG chain.
+
+    Used by the AI Agent.
+    """
+
+    response: str
+
+    documents: list[Document] = field(default_factory=list)
+
+    similarity_scores: list[float] = field(default_factory=list)
+
+    usage: TokenUsage = field(
+        default_factory=TokenUsage.empty,
+    )
+
+    finish_reason: str = "stop"
+
 
 
 # --------------------------------------------------------------------------- #
@@ -115,6 +139,38 @@ class RAGChain:
             raise RAGGenerationError(
                 "Failed to generate RAG response."
             ) from exc
+        
+
+    # ------------------------------------------------------------------ #
+    # Run
+    # ------------------------------------------------------------------ #
+        
+    async def run(
+        self,
+        *,
+        query: str,
+        documents: list[Document],
+        prompt: str | None = None,
+    ) -> RAGResult:
+
+        retrieval_result = RetrievalResult(
+            documents=documents,
+            similarity_scores=[],
+            retrieval_metadata={},
+        )
+
+        rag_response = await self.generate(
+            query=query,
+            retrieval_result=retrieval_result,
+        )
+
+        return RAGResult(
+            response=rag_response.answer,
+            documents=rag_response.documents,
+            similarity_scores=rag_response.similarity_scores,
+            usage=TokenUsage.empty(),
+            finish_reason="stop",
+        )
 
     # ------------------------------------------------------------------ #
     # Stream

@@ -4,9 +4,9 @@
 - 002 CRM Core        ✅
 - 003 Audit & Activity ✅
 - 004 Streaming Chat  ✅
-- 005 RAG Foundation    ✅
+- 005 RAG Foundation (LangChain) ✅
 - 006 Retrieval Observability ✅
-- 007 AI Agent
+- 007 AI Agent Orchestration (LangGraph) ✅
 - 008 Prompt Management
 - 009 AI Guardrails & Safety
 - 010 AI Actions & Approval Layer

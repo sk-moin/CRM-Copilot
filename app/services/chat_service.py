@@ -23,6 +23,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.rag.rag_service import RAGService
+from app.agent.service import AgentService
 from app.services.audit_service import AuditService
 from app.services.llm.models import (
     StreamChunk,
@@ -57,13 +58,13 @@ class ChatService:
         self,
         session: AsyncSession,
         current_user: Any,
-        rag_service: RAGService,
+        agent_service: AgentService,
     ) -> None:
         self._session = session
         self._user = current_user
         self._tenant_id = current_user.tenant_id
 
-        self._rag_service = rag_service
+        self._agent_service = agent_service
 
         self._conversation_repo = ConversationRepository(
             session=session,
@@ -161,23 +162,21 @@ class ChatService:
         # Stream RAG response
         # ------------------------------------------------------------------ #
 
-        async for chunk in self._rag_service.stream(
+        agent_state = await self._agent_service.run(
             conversation_id=conversation_id,
+            tenant_id=self._tenant_id,
+            user_id=self._user.id,
             query=user_message,
-        ):
-        # Final chunk contains metadata only.
-            if chunk.is_final:
-                finish_reason = chunk.finish_reason or "stop"
+        )
 
-                if chunk.usage is not None:
-                    usage = chunk.usage
+        full_response = agent_state["response"] or ""
 
-                continue
+        usage = agent_state["usage"]
+        finish_reason = agent_state.get("finish_reason", "stop")
 
-            if chunk.token:
-                full_response += chunk.token
-
-            yield chunk
+        yield StreamChunk(
+            token=full_response,
+        )
 
         # ------------------------------------------------------------------ #
         # Persist assistant message

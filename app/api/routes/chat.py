@@ -7,7 +7,9 @@ from collections.abc import AsyncGenerator
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+
 from app.api.dependencies import get_chat_service
+from app.services.chat_service import ChatService
 from app.api.schemas.chat import (
     ChatRequest,
     ChatStreamDone,
@@ -15,7 +17,7 @@ from app.api.schemas.chat import (
     ChatStreamToken,
     ChatStreamUsage,
 )
-from app.services.chat_service import ChatService
+from app.agent.service import AgentService
 
 router = APIRouter(tags=["Chat"])
 

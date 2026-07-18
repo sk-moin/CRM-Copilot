@@ -69,7 +69,9 @@ from app.services.retrieval_trace_service import (
 from app.services.retrieved_chunk_service import (
     RetrievedChunkService,
 )
-
+from app.agent.factory import build_agent
+from app.agent.service import AgentService
+from app.agent.builders.prompt_builder import PromptBuilder
 
 # --------------------------------------------------------------------------- #
 # Authentication
@@ -498,16 +500,41 @@ def get_rag_service(
         rag_chain=rag_chain,
     )
 
+# --------------------------------------------------------------------------- #
+# AI Agent
+# --------------------------------------------------------------------------- #
+
+
+def get_agent_service(
+    retrieval_service: RetrievalService = Depends(
+        get_retrieval_service,
+    ),
+    rag_chain: RAGChain = Depends(
+        get_rag_chain,
+    ),
+) -> AgentService:
+    """
+    Create the AI Agent.
+    """
+
+    prompt_builder = PromptBuilder()
+
+    return build_agent(
+        retrieval_service=retrieval_service,
+        rag_chain=rag_chain,
+        prompt_builder=prompt_builder,
+    )
+
 
 def get_chat_service(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    rag_service: RAGService = Depends(get_rag_service),
+    agent_service: AgentService = Depends(get_agent_service),
 ) -> ChatService:
     return ChatService(
         session=db,
         current_user=current_user,
-        rag_service=rag_service,
+        agent_service=agent_service,
     )
 
 # --------------------------------------------------------------------------- #
@@ -553,4 +580,7 @@ __all__ = [
     "get_retrieval_service",
     "get_rag_chain",
     "get_rag_service",
+
+    # AI Agent
+    "get_agent_service",
 ]

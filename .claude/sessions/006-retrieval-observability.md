@@ -1,4 +1,4 @@
-# Spec 006 — Retrieval Observability
+# Session 006 — Retrieval Observability
 
 **Status:** ✅ Completed
 **Date:** 2026-07-07 – 2026-07-10
