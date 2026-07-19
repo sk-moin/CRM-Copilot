@@ -14,3 +14,9 @@
 - 012 Rate Limiting
 - 013 Observability
 - 014 AI Evaluation Framework
+
+
+
+# Demo UI of the Project
+
+![alt text](<ChatGPT Image Jul 19, 2026, 04_36_22 PM.png>)
