@@ -19,4 +19,4 @@
 
 # Demo UI of the Project
 
-![alt text](<ChatGPT Image Jul 19, 2026, 04_36_22 PM.png>)
+![alt text](Demo-UI-Dashboard.png)
