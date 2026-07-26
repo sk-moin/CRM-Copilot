@@ -10,6 +10,7 @@ from app.api.routes.opportunity import router as opportunity_router
 from app.api.routes.task import router as task_router
 from app.api.routes import audit
 from app.api.routes.chat import router as chat_router
+from app.api.routes.prompt import router as prompt_router
 
 app = FastAPI(
     title="CRM Copilot API",
@@ -24,9 +25,10 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 # Register routers
-app.include_router(company_router, prefix="/companies", tags=["Companies"])
-app.include_router(contact_router, prefix="/contacts", tags=["Contacts"])
-app.include_router(opportunity_router, prefix="/opportunities", tags=["Opportunities"])
-app.include_router(task_router, prefix="/tasks", tags=["Tasks"])
-app.include_router(audit.router)
-app.include_router(chat_router)
+app.include_router(company_router, prefix="/api/v1/companies", tags=["Companies"])
+app.include_router(contact_router, prefix="/api/v1/contacts", tags=["Contacts"])
+app.include_router(opportunity_router, prefix="/api/v1/opportunities", tags=["Opportunities"])
+app.include_router(task_router, prefix="/api/v1/tasks", tags=["Tasks"])
+app.include_router(audit.router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
+app.include_router(prompt_router, prefix="/api/v1")

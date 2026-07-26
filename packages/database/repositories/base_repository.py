@@ -111,3 +111,11 @@ class BaseRepository:
         await self.session.flush()
 
         return True
+
+    async def get_one(self, stmt):
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_many(self, stmt):
+        result = await self.session.execute(stmt)
+        return result.scalars().all()

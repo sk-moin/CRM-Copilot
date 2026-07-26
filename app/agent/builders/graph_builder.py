@@ -22,6 +22,7 @@ from functools import partial
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.builders.prompt_builder import PromptBuilder
+from app.services.llm.prompt_manager import PromptManager
 from app.agent.nodes.finish import finish_node
 from app.agent.nodes.generate import generate_node
 from app.agent.nodes.prompt import prompt_node
@@ -41,10 +42,12 @@ class GraphBuilder:
         *,
         retrieval_service: RetrievalService,
         prompt_builder: PromptBuilder,
+        prompt_manager: PromptManager,
         rag_chain: RAGChain,
     ) -> None:
         self.retrieval_service = retrieval_service
         self.prompt_builder = prompt_builder
+        self.prompt_manager = prompt_manager
         self.rag_chain = rag_chain
 
     def build(self):
@@ -85,6 +88,7 @@ class GraphBuilder:
             partial(
                 prompt_node,
                 prompt_builder=self.prompt_builder,
+                prompt_manager=self.prompt_manager,
             ),
         )
 

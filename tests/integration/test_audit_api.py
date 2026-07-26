@@ -9,7 +9,7 @@ async def test_get_entity_audit(
     audit_log,
 ):
     response = await authed_client.get(
-        f"/audit/entity/{audit_log.entity_type}/{audit_log.entity_id}"
+        f"api/v1/audit/entity/{audit_log.entity_type}/{audit_log.entity_id}"
     )
 
     assert response.status_code == 200
@@ -28,7 +28,7 @@ async def test_get_user_audit(
     audit_log,
 ):
     response = await authed_client.get(
-        f"/audit/user/{audit_log.user_id}"
+        f"api/v1/audit/user/{audit_log.user_id}"
     )
 
     assert response.status_code == 200
@@ -44,7 +44,7 @@ async def test_get_user_audit(
 async def test_get_my_audit(
     authed_client,
 ):
-    response = await authed_client.get("/audit/me")
+    response = await authed_client.get("/api/v1/audit/me")
 
     assert response.status_code == 200
 
@@ -61,7 +61,7 @@ async def test_get_correlation_audit(
     audit_log,
 ):
     response = await authed_client.get(
-        f"/audit/correlation/{audit_log.correlation_id}"
+        f"/api/v1/audit/correlation/{audit_log.correlation_id}"
     )
 
     assert response.status_code == 200
@@ -78,7 +78,7 @@ async def test_entity_audit_not_found(
     authed_client,
 ):
     response = await authed_client.get(
-        f"/audit/entity/company/{uuid.uuid4()}"
+        f"/api/v1/audit/entity/company/{uuid.uuid4()}"
     )
 
     assert response.status_code == 200
@@ -94,7 +94,7 @@ async def test_user_audit_not_found(
     authed_client,
 ):
     response = await authed_client.get(
-        f"/audit/user/{uuid.uuid4()}"
+        f"/api/v1/audit/user/{uuid.uuid4()}"
     )
 
     assert response.status_code == 200
@@ -110,7 +110,7 @@ async def test_correlation_not_found(
     authed_client,
 ):
     response = await authed_client.get(
-        f"/audit/correlation/{uuid.uuid4()}"
+        f"/api/v1/audit/correlation/{uuid.uuid4()}"
     )
 
     assert response.status_code == 200

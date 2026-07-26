@@ -50,3 +50,5 @@ class Organization(Base):
 
     # Relationships
     tenant = relationship("Tenant", backref="organizations", lazy="joined")
+
+    prompts = relationship("Prompt", back_populates="organization", cascade="all, delete-orphan")

@@ -45,6 +45,7 @@ def agent_state() -> AgentState:
     return AgentState(
         conversation_id=uuid4(),
         tenant_id=uuid4(),
+        org_id=uuid4(),
         user_id=uuid4(),
         query="What is CRM?",
         messages=[],
@@ -81,6 +82,7 @@ async def test_execute_success(
     result = await service.run(
         conversation_id=agent_state["conversation_id"],
         tenant_id=agent_state["tenant_id"],
+        org_id=agent_state["org_id"],
         user_id=agent_state["user_id"],
         query=agent_state["query"],
     )
@@ -91,6 +93,7 @@ async def test_execute_success(
 
     assert passed_state["conversation_id"] == agent_state["conversation_id"]
     assert passed_state["tenant_id"] == agent_state["tenant_id"]
+    assert passed_state["org_id"] == agent_state["org_id"]
     assert passed_state["user_id"] == agent_state["user_id"]
     assert passed_state["query"] == agent_state["query"]
 
@@ -114,6 +117,7 @@ async def test_execute_without_user(
     result = await service.run(
         conversation_id=agent_state["conversation_id"],
         tenant_id=agent_state["tenant_id"],
+        org_id=agent_state["org_id"],
         user_id=None,
         query=agent_state["query"],
     )
@@ -136,6 +140,7 @@ async def test_execute_preserves_response(
     result = await service.run(
         conversation_id=agent_state["conversation_id"],
         tenant_id=agent_state["tenant_id"],
+        org_id=agent_state["org_id"],
         user_id=agent_state["user_id"],
         query=agent_state["query"],
     )
@@ -161,6 +166,7 @@ async def test_execute_preserves_usage(
     result = await service.run(
         conversation_id=agent_state["conversation_id"],
         tenant_id=agent_state["tenant_id"],
+        org_id=agent_state["org_id"],
         user_id=agent_state["user_id"],
         query=agent_state["query"],
     )
@@ -190,6 +196,7 @@ async def test_execute_preserves_citations(
     result = await service.run(
         conversation_id=agent_state["conversation_id"],
         tenant_id=agent_state["tenant_id"],
+        org_id=agent_state["org_id"],
         user_id=agent_state["user_id"],
         query=agent_state["query"],
     )
@@ -214,6 +221,7 @@ async def test_execute_runner_failure(
         await service.run(
             conversation_id=uuid4(),
             tenant_id=uuid4(),
+            org_id=uuid4(),
             user_id=uuid4(),
             query="CRM",
         )

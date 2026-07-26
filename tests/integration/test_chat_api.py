@@ -32,7 +32,7 @@ async def test_chat_stream_endpoint(
     )
 
     response = await authed_client.post(
-        "/chat/stream",
+        "api/v1/chat/stream",
         json={
             "conversation_id": str(conversation.id),
             "message": "Hello!",

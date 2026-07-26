@@ -164,6 +164,7 @@ class ChatService:
 
         agent_state = await self._agent_service.run(
             conversation_id=conversation_id,
+            org_id=self._user.org_id,
             tenant_id=self._tenant_id,
             user_id=self._user.id,
             query=user_message,

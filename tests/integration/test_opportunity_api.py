@@ -12,7 +12,7 @@ async def _create_opportunity(
     seeded_user,
 ):
     response = await authed_client.post(
-        "/opportunities/",
+        "api/v1/opportunities/",
         json={
             "title": "Test Opportunity",
             "stage": "LEAD",
@@ -39,7 +39,7 @@ async def test_create_opportunity(
     seeded_user,
 ):
     response = await authed_client.post(
-        "/opportunities/",
+        "api/v1/opportunities/",
         json={
             "title": "Enterprise CRM Deal",
             "stage": "LEAD",
@@ -79,7 +79,7 @@ async def test_get_opportunity_by_id(
     )
 
     response = await authed_client.get(
-        f"/opportunities/{opportunity['id']}"
+        f"api/v1/opportunities/{opportunity['id']}"
     )
 
     assert response.status_code == 200
@@ -107,7 +107,7 @@ async def test_list_opportunities(
         seeded_user,
     )
 
-    response = await authed_client.get("/opportunities/")
+    response = await authed_client.get("api/v1/opportunities/")
 
     assert response.status_code == 200
 
@@ -137,7 +137,7 @@ async def test_patch_opportunity(
     )
 
     response = await authed_client.patch(
-        f"/opportunities/{opportunity['id']}",
+        f"api/v1/opportunities/{opportunity['id']}",
         json={
             "stage": "PROPOSAL",
         },
@@ -167,7 +167,7 @@ async def test_patch_opportunity_invalid_stage(
     )
 
     response = await authed_client.patch(
-        f"/opportunities/{opportunity['id']}",
+        f"api/v1/opportunities/{opportunity['id']}",
         json={
             "stage": "INVALID_STAGE",
         },
@@ -190,7 +190,7 @@ async def test_patch_opportunity_negative_value(
     )
 
     response = await authed_client.patch(
-        f"/opportunities/{opportunity['id']}",
+        f"api/v1/opportunities/{opportunity['id']}",
         json={
             "value": -100,
         },
@@ -214,7 +214,7 @@ async def test_patch_opportunity_invalid_probability(
     )
 
     response = await authed_client.patch(
-        f"/opportunities/{opportunity['id']}",
+        f"api/v1/opportunities/{opportunity['id']}",
         json={
             "probability": 150,
         },
@@ -233,7 +233,7 @@ async def test_get_opportunity_not_found(
     authed_client,
 ):
     response = await authed_client.get(
-        f"/opportunities/{uuid.uuid4()}"
+        f"api/v1/opportunities/{uuid.uuid4()}"
     )
 
     assert response.status_code == 404

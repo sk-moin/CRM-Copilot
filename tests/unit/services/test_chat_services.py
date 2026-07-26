@@ -58,12 +58,14 @@ async def chat_service(async_session, user):
             conversation_id,
             tenant_id,
             user_id,
+            org_id,
             query,
         ):
             return {
                 "conversation_id": conversation_id,
                 "tenant_id": tenant_id,
                 "user_id": user_id,
+                "org_id": org_id,
                 "query": query,
                 "messages": [],
                 "retrieved_documents": [],

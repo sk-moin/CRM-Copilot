@@ -30,7 +30,7 @@ async def test_chat_stream_success(
     )
 
     response = await authed_client.post(
-        "/chat/stream",
+        "api/v1/chat/stream",
         json={
             "conversation_id": str(conversation.id),
             "message": "Hello",
@@ -55,7 +55,7 @@ async def test_chat_stream_invalid_conversation(
     authed_client,
 ):
     response = await authed_client.post(
-        "/chat/stream",
+        "api/v1/chat/stream",
         json={
             "conversation_id": str(uuid4()),
             "message": "Hello",
@@ -106,7 +106,7 @@ async def test_chat_stream_permission_denied(
     )
 
     response = await authed_client.post(
-        "/chat/stream",
+        "api/v1/chat/stream",
         json={
             "conversation_id": str(conversation.id),
             "message": "Hello",
@@ -126,7 +126,7 @@ async def test_chat_stream_empty_message(
     authed_client,
 ):
     response = await authed_client.post(
-        "/chat/stream",
+        "api/v1/chat/stream",
         json={
             "conversation_id": None,
             "message": "",
@@ -157,7 +157,7 @@ async def test_chat_stream_returns_usage(
     )
 
     response = await authed_client.post(
-        "/chat/stream",
+        "api/v1/chat/stream",
         json={
             "conversation_id": str(conversation.id),
             "message": "Hello",

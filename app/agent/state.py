@@ -87,6 +87,7 @@ class AgentState(TypedDict):
     conversation_id: UUID
     tenant_id: UUID
     user_id: UUID | None
+    org_id: UUID
 
     query: str
 

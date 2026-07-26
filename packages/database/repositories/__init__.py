@@ -22,6 +22,12 @@ from packages.database.repositories.note_repository import (
 from packages.database.repositories.base_repository import (
     BaseRepository,
 )
+from packages.database.repositories.prompt_repository import (
+    PromptRepository,
+)
+from packages.database.repositories.prompt_version_repository import (
+    PromptVersionRepository,
+)
 
 __all__ = [
     "CompanyRepository",
@@ -30,4 +36,6 @@ __all__ = [
     "TaskRepository",
     "NoteRepository",
     "BaseRepository",
+    "PromptRepository",
+    "PromptVersionRepository",
 ]

@@ -26,6 +26,7 @@ async def test_agent_creates_retrieval_metadata() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Explain Retrieval Observability",
         "messages": [],
@@ -49,6 +50,7 @@ async def test_agent_creates_retrieval_metadata() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -67,6 +69,7 @@ async def test_agent_handles_empty_retrieval() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "No matching documents",
         "messages": [],
@@ -89,6 +92,7 @@ async def test_agent_handles_empty_retrieval() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -106,6 +110,7 @@ async def test_agent_returns_citations_after_retrieval() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Explain embeddings",
         "messages": [],
@@ -133,6 +138,7 @@ async def test_agent_returns_citations_after_retrieval() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -150,6 +156,7 @@ async def test_agent_propagates_retrieval_errors() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Trigger failure",
         "messages": [],
@@ -175,6 +182,7 @@ async def test_agent_propagates_retrieval_errors() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -192,6 +200,7 @@ async def test_agent_preserves_usage_metadata() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Hello",
         "messages": [],
@@ -217,6 +226,7 @@ async def test_agent_preserves_usage_metadata() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )

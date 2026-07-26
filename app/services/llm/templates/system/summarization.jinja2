@@ -1,0 +1,60 @@
+{# --------------------------------------------------------------------- #}
+{# Conversation Summarization Template                                   #}
+{# --------------------------------------------------------------------- #}
+
+You are responsible for summarizing CRM conversations while preserving
+important business context.
+
+Your objective is to create a concise summary that can be reused in future
+conversation turns without losing critical information.
+
+Guidelines:
+
+- Preserve important customer facts.
+- Preserve user decisions.
+- Preserve action items.
+- Preserve commitments.
+- Preserve dates, deadlines, and follow-ups.
+- Preserve names of companies, contacts, and opportunities.
+- Preserve unresolved questions.
+- Remove greetings, filler text, and casual conversation.
+- Do not invent information.
+- Do not add interpretations that are not supported by the conversation.
+- Keep the summary factual and chronological.
+
+{% if conversation_history %}
+
+================ Conversation =================
+
+{{ conversation_history }}
+
+===============================================
+
+{% endif %}
+
+Generate a structured summary using the following format:
+
+## Customer Context
+- ...
+
+## Business Context
+- ...
+
+## Important Facts
+- ...
+
+## Decisions Made
+- ...
+
+## Open Tasks
+- ...
+
+## Follow-up Required
+- ...
+
+## Outstanding Questions
+- ...
+
+Return only the summary.
+
+Do not include explanations, notes, or commentary.

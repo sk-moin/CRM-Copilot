@@ -8,7 +8,7 @@ from packages.database.repositories.company_repository import CompanyRepository
 @pytest.mark.asyncio
 async def test_create_company(authed_client):
     response = await authed_client.post(
-        "/companies/",
+        "api/v1/companies/",
         json={
             "name": "Acme Corp",
             "industry": "Technology",
@@ -25,7 +25,7 @@ async def test_create_company(authed_client):
 
 @pytest.mark.asyncio
 async def test_get_company_by_id(authed_client, seeded_company):
-    response = await authed_client.get(f"/companies/{seeded_company.id}")
+    response = await authed_client.get(f"api/v1/companies/{seeded_company.id}")
     assert response.status_code == 200
 
     data = response.json()
@@ -35,7 +35,7 @@ async def test_get_company_by_id(authed_client, seeded_company):
 
 @pytest.mark.asyncio
 async def test_list_companies(authed_client, seeded_company):
-    response = await authed_client.get("/companies/")
+    response = await authed_client.get("api/v1/companies/")
     assert response.status_code == 200
 
     data = response.json()
@@ -46,7 +46,7 @@ async def test_list_companies(authed_client, seeded_company):
 @pytest.mark.asyncio
 async def test_patch_company(authed_client, seeded_company):
     response = await authed_client.patch(
-        f"/companies/{seeded_company.id}",
+        f"api/v1/companies/{seeded_company.id}",
         json={"industry": "Software"},
     )
     assert response.status_code == 200
@@ -56,7 +56,7 @@ async def test_patch_company(authed_client, seeded_company):
 
 @pytest.mark.asyncio
 async def test_delete_company(authed_client, seeded_company):
-    response = await authed_client.delete(f"/companies/{seeded_company.id}")
+    response = await authed_client.delete(f"api/v1/companies/{seeded_company.id}")
     assert response.status_code == 200
 
     assert response.json() == {"deleted": True}
@@ -66,7 +66,7 @@ async def test_get_company_not_found(authed_client):
     import uuid
 
     non_existent_id = str(uuid.uuid4())
-    response = await authed_client.get(f"/companies/{non_existent_id}")
+    response = await authed_client.get(f"api/v1/companies/{non_existent_id}")
     assert response.status_code == 404
 
     data = response.json()

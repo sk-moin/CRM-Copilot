@@ -32,10 +32,7 @@ from app.core.security import (
     JWTError,
     decode_jwt,
 )
-from app.core.config import Settings
-from app.rag.embeddings.mock_embedding_provider import (
-    MockEmbeddingProvider,
-)
+
 from packages.database.models import User
 
 from packages.database.repositories.user_repository import (
@@ -54,13 +51,22 @@ from packages.database.repositories.retrieved_chunk_repository import (
     RetrievedChunkRepository,
 )
 
+from app.services.llm.prompt_cache import prompt_cache
+from app.services.llm.prompt_loader import PromptLoader
+from app.services.llm.prompt_manager import PromptManager
+from app.services.llm.prompt_renderer import PromptRenderer
+from packages.database.repositories.prompt_repository import PromptRepository
+from packages.database.repositories.prompt_version_repository import (
+    PromptVersionRepository,
+)
+
 from app.services.company_service import CompanyService
 from app.services.contact_service import ContactService
 from app.services.opportunity_service import OpportunityService
 from app.services.task_service import TaskService
 from app.services.audit_service import AuditService
 from app.services.chat_service import ChatService
-
+from app.services.llm.prompt_service import PromptService
 from app.services.llm.base import LLMProvider
 
 from app.services.retrieval_trace_service import (
@@ -80,12 +86,18 @@ from app.agent.builders.prompt_builder import PromptBuilder
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Depends(
-        HTTPBearer(),
+        HTTPBearer(auto_error=False),
     ),
 ) -> User:
     """
     Return the authenticated user.
     """
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
 
     try:
         payload = decode_jwt(
@@ -282,7 +294,7 @@ def get_text_splitter() -> TextSplitter:
     return create_text_splitter()
 
 
-def get_embedding_provider():
+def get_embedding_provider() -> EmbeddingProvider:
 
     return create_embedding_provider()
 
@@ -500,6 +512,71 @@ def get_rag_service(
         rag_chain=rag_chain,
     )
 
+
+def get_prompt_repository(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PromptRepository:
+    """
+    Repository for Prompt.
+    """
+    return PromptRepository(
+        session=db,
+        tenant_id=current_user.tenant_id,
+    )
+
+
+def get_prompt_version_repository(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PromptVersionRepository:
+    """
+    Repository for PromptVersion.
+    """
+    return PromptVersionRepository(
+        session=db,
+        tenant_id=current_user.tenant_id,
+    )
+
+
+def get_prompt_renderer() -> PromptRenderer:
+    """
+    Return the PromptRenderer.
+    """
+    return PromptRenderer()
+
+def get_prompt_loader(
+    prompt_repository: PromptRepository = Depends(
+        get_prompt_repository,
+    ),
+    prompt_version_repository: PromptVersionRepository = Depends(
+        get_prompt_version_repository,
+    ),
+) -> PromptLoader:
+    """
+    Return the PromptLoader.
+    """
+    return PromptLoader(
+        prompt_repository=prompt_repository,
+        prompt_version_repository=prompt_version_repository,
+        cache=prompt_cache,
+    )
+
+def get_prompt_manager(
+    prompt_loader: PromptLoader = Depends(
+        get_prompt_loader,
+    ),
+    prompt_renderer: PromptRenderer = Depends(
+        get_prompt_renderer,
+    ),
+) -> PromptManager:
+    """
+    Return the PromptManager.
+    """
+    return PromptManager(
+        prompt_loader=prompt_loader,
+        prompt_renderer=prompt_renderer,
+    )
 # --------------------------------------------------------------------------- #
 # AI Agent
 # --------------------------------------------------------------------------- #
@@ -512,6 +589,9 @@ def get_agent_service(
     rag_chain: RAGChain = Depends(
         get_rag_chain,
     ),
+    prompt_manager: PromptManager = Depends(
+        get_prompt_manager,
+    ),
 ) -> AgentService:
     """
     Create the AI Agent.
@@ -523,6 +603,7 @@ def get_agent_service(
         retrieval_service=retrieval_service,
         rag_chain=rag_chain,
         prompt_builder=prompt_builder,
+        prompt_manager=prompt_manager,
     )
 
 
@@ -535,6 +616,101 @@ def get_chat_service(
         session=db,
         current_user=current_user,
         agent_service=agent_service,
+    )
+
+# ---------------------------------------------------------------------
+# Repositories
+# ---------------------------------------------------------------------
+
+
+
+
+
+
+
+
+def get_prompt_service(
+    current_user: User = Depends(get_current_user),
+    prompt_repository: PromptRepository = Depends(
+        get_prompt_repository,
+    ),
+    prompt_version_repository: PromptVersionRepository = Depends(
+        get_prompt_version_repository,
+    ),
+    prompt_loader: PromptLoader = Depends(
+        get_prompt_loader,
+    ),
+    prompt_renderer: PromptRenderer = Depends(
+        get_prompt_renderer,
+    ),
+    prompt_manager: PromptManager = Depends(
+        get_prompt_manager,
+    ),
+) -> PromptService:
+    return PromptService(
+        current_user=current_user,
+        prompt_repository=prompt_repository,
+        prompt_version_repository=prompt_version_repository,
+        prompt_loader=prompt_loader,
+        prompt_renderer=prompt_renderer,
+        prompt_manager=prompt_manager,
+    )
+
+
+# ---------------------------------------------------------------------
+# Prompt Components
+# ---------------------------------------------------------------------
+
+
+
+def get_prompt_renderer() -> PromptRenderer:
+    """
+    Return the PromptRenderer.
+    """
+
+    return PromptRenderer()
+
+
+def get_prompt_loader(
+    prompt_repository: PromptRepository = Depends(
+        get_prompt_repository
+    ),
+    prompt_version_repository: PromptVersionRepository = Depends(
+        get_prompt_version_repository
+    ),
+) -> PromptLoader:
+    """
+    Return the PromptLoader.
+    """
+
+    return PromptLoader(
+        prompt_repository=prompt_repository,
+        prompt_version_repository=prompt_version_repository,
+        cache=prompt_cache,
+    )
+
+
+def get_prompt_manager(
+    prompt_repository: PromptRepository = Depends(
+        get_prompt_repository,
+    ),
+    prompt_version_repository: PromptVersionRepository = Depends(
+        get_prompt_version_repository,
+    ),
+    prompt_loader: PromptLoader = Depends(
+        get_prompt_loader,
+    ),
+    prompt_renderer: PromptRenderer = Depends(
+        get_prompt_renderer,
+    ),
+) -> PromptManager:
+    """
+    Return the PromptManager.
+    """
+
+    return PromptManager(
+        prompt_loader=prompt_loader,
+        prompt_renderer=prompt_renderer,
     )
 
 # --------------------------------------------------------------------------- #
@@ -583,4 +759,15 @@ __all__ = [
 
     # AI Agent
     "get_agent_service",
+
+    # Prompt Components
+    "get_prompt_renderer",
+    "get_prompt_loader",
+    "get_prompt_manager",
+    "get_prompt_service",
+    
+
+    # Repositories
+    "get_prompt_repository",
+    "get_prompt_version_repository",
 ]

@@ -6,7 +6,7 @@ import uuid
 @pytest.mark.asyncio
 async def test_create_contact(authed_client, seeded_company):
     response = await authed_client.post(
-        "/contacts/",
+        "api/v1/contacts/",
         json={
             "first_name": "John",
             "last_name": "Doe",
@@ -26,7 +26,7 @@ async def test_create_contact(authed_client, seeded_company):
 async def test_get_contact_by_id(authed_client, seeded_company):
     # First create a contact
     create_resp = await authed_client.post(
-        "/contacts/",
+        "api/v1/contacts/",
         json={
             "first_name": "Jane",
             "last_name": "Smith",
@@ -36,7 +36,7 @@ async def test_get_contact_by_id(authed_client, seeded_company):
     )
     contact_id = create_resp.json()["id"]
 
-    response = await authed_client.get(f"/contacts/{contact_id}")
+    response = await authed_client.get(f"api/v1/contacts/{contact_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["first_name"] == "Jane"
@@ -45,7 +45,7 @@ async def test_get_contact_by_id(authed_client, seeded_company):
 # LIST
 @pytest.mark.asyncio
 async def test_list_contacts(authed_client):
-    response = await authed_client.get("/contacts/")
+    response = await authed_client.get("api/v1/contacts/")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
@@ -53,7 +53,7 @@ async def test_list_contacts(authed_client):
 @pytest.mark.asyncio
 async def test_update_contact(authed_client, seeded_company):
     create_resp = await authed_client.post(
-        "/contacts/",
+        "api/v1/contacts/",
         json={
             "first_name": "Bob",
             "last_name": "Brown",
@@ -64,7 +64,7 @@ async def test_update_contact(authed_client, seeded_company):
     contact_id = create_resp.json()["id"]
 
     response = await authed_client.patch(
-        f"/contacts/{contact_id}",
+        f"api/v1/contacts/{contact_id}",
         json={"email": "bob.updated@example.com"},
     )
     assert response.status_code == 200
@@ -74,7 +74,7 @@ async def test_update_contact(authed_client, seeded_company):
 @pytest.mark.asyncio
 async def test_delete_contact(authed_client, seeded_company):
     create_resp = await authed_client.post(
-        "/contacts/",
+        "api/v1/contacts/",
         json={
             "first_name": "Del",
             "last_name": "User",
@@ -84,12 +84,12 @@ async def test_delete_contact(authed_client, seeded_company):
     )
     contact_id = create_resp.json()["id"]
 
-    response = await authed_client.delete(f"/contacts/{contact_id}")
+    response = await authed_client.delete(f"api/v1/contacts/{contact_id}")
     assert response.status_code == 200
     assert response.json() == {"deleted": True}
 
 # 404
 @pytest.mark.asyncio
 async def test_get_contact_not_found(authed_client):
-    response = await authed_client.get(f"/contacts/{uuid.uuid4()}")
+    response = await authed_client.get(f"api/v1/contacts/{uuid.uuid4()}")
     assert response.status_code == 404

@@ -9,7 +9,7 @@ import uuid
 async def test_create_task(authed_client, seeded_user):
     """Baseline create test (already existed)."""
     resp = await authed_client.post(
-        "/tasks/",
+        "api/v1/tasks/",
         json={
             "title": "Follow up with customer",
             "description": "Schedule product demo",
@@ -30,7 +30,7 @@ async def test_create_task(authed_client, seeded_user):
 # Helper to create a task for other tests
 async def _create_task(authed_client, seeded_user):
     resp = await authed_client.post(
-        "/tasks/",
+        "api/v1/tasks/",
         json={
             "title": "Test Task",
             "description": "A task for testing",
@@ -45,7 +45,7 @@ async def _create_task(authed_client, seeded_user):
 @pytest.mark.asyncio
 async def test_get_task_by_id(authed_client, seeded_user):
     task_id = await _create_task(authed_client, seeded_user)
-    resp = await authed_client.get(f"/tasks/{task_id}")
+    resp = await authed_client.get(f"api/v1/tasks/{task_id}")
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == task_id
@@ -54,7 +54,7 @@ async def test_get_task_by_id(authed_client, seeded_user):
 @pytest.mark.asyncio
 async def test_list_tasks(authed_client, seeded_user):
     task_id = await _create_task(authed_client, seeded_user)
-    resp = await authed_client.get("/tasks/")
+    resp = await authed_client.get("api/v1/tasks/")
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
@@ -65,7 +65,7 @@ async def test_list_tasks(authed_client, seeded_user):
 async def test_patch_task(authed_client, seeded_user):
     task_id = await _create_task(authed_client, seeded_user)
     resp = await authed_client.patch(
-        f"/tasks/{task_id}",
+        f"api/v1/tasks/{task_id}",
         json={"status": "COMPLETED"},
     )
     assert resp.status_code == 200
@@ -77,7 +77,7 @@ async def test_patch_task_invalid_assignee(authed_client, seeded_user):
     task_id = await _create_task(authed_client, seeded_user)
     random_user = str(uuid.uuid4())
     resp = await authed_client.patch(
-        f"/tasks/{task_id}",
+        f"api/v1/tasks/{task_id}",
         json={"assigned_to_user_id": random_user},
     )
     # Service raises EntityNotFoundError → 404
@@ -88,7 +88,7 @@ async def test_patch_task_invalid_entity_pair_missing_type(authed_client, seeded
     task_id = await _create_task(authed_client, seeded_user)
     # Provide entity_id only
     resp = await authed_client.patch(
-        f"/tasks/{task_id}",
+        f"api/v1/tasks/{task_id}",
         json={"entity_id": str(uuid.uuid4())},
     )
     # Could be 400 (service) or 422 (schema) – we accept either
@@ -99,7 +99,7 @@ async def test_patch_task_invalid_entity_pair_missing_id(authed_client, seeded_u
     task_id = await _create_task(authed_client, seeded_user)
     # Provide entity_type only
     resp = await authed_client.patch(
-        f"/tasks/{task_id}",
+        f"api/v1/tasks/{task_id}",
         json={"entity_type": "company"},
     )
     assert resp.status_code in (400, 422)
@@ -108,7 +108,7 @@ async def test_patch_task_invalid_entity_pair_missing_id(authed_client, seeded_u
 async def test_patch_task_invalid_entity_type(authed_client, seeded_user):
     task_id = await _create_task(authed_client, seeded_user)
     resp = await authed_client.patch(
-        f"/tasks/{task_id}",
+        f"api/v1/tasks/{task_id}",
         json={"entity_type": "invalid", "entity_id": str(uuid.uuid4())},
     )
     # Service raises BusinessRuleViolationError → 400 (or 422 if schema catches)
@@ -117,5 +117,5 @@ async def test_patch_task_invalid_entity_type(authed_client, seeded_user):
 @pytest.mark.asyncio
 async def test_get_task_not_found(authed_client):
     random_id = str(uuid.uuid4())
-    resp = await authed_client.get(f"/tasks/{random_id}")
+    resp = await authed_client.get(f"api/v1/tasks/{random_id}")
     assert resp.status_code == 404

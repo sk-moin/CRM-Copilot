@@ -45,6 +45,7 @@ class AgentService:
         conversation_id: UUID,
         tenant_id: UUID,
         user_id: UUID | None,
+        org_id: UUID,
         query: str,
     ) -> AgentState:
 
@@ -54,6 +55,7 @@ class AgentService:
             "conversation_id": conversation_id,
             "tenant_id": tenant_id,
             "user_id": user_id,
+            "org_id": org_id,
             "query": query,
 
             "messages": [],

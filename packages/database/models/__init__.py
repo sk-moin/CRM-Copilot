@@ -15,6 +15,8 @@ from .document_chunk import DocumentChunk
 from .knowledge_document import KnowledgeDocument
 from .retrieval_trace import RetrievalTrace
 from .retrieved_chunk import RetrievedChunk
+from .prompt import Prompt 
+from .prompt_version import PromptVersion
 
 __all__ = [
     "Tenant",
@@ -36,4 +38,6 @@ __all__ = [
     "KnowledgeDocument",
     "RetrievalTrace",
     "RetrievedChunk",
+    "Prompt",
+    "PromptVersion"
 ]

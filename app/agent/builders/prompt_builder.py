@@ -19,8 +19,6 @@ from __future__ import annotations
 
 from langchain_core.documents import Document
 
-from app.agent.prompts.system_prompt import get_system_prompt
-
 
 class PromptBuilder:
     """
@@ -30,6 +28,7 @@ class PromptBuilder:
     def build(
         self,
         *,
+        system_prompt: str,
         query: str,
         messages: list[dict[str, str]],
         documents: list[Document],
@@ -60,7 +59,8 @@ class PromptBuilder:
         # System Prompt
         # --------------------------------------------------------- #
 
-        sections.append(get_system_prompt())
+        if system_prompt:
+            sections.append(system_prompt)
 
         # --------------------------------------------------------- #
         # Conversation History
@@ -123,10 +123,20 @@ class PromptBuilder:
             + query.strip()
         )
 
+        # System Prompt
+        if system_prompt is not None:
+            sections.append(system_prompt)
+        else:
+            sections.append("")  # or omit entirely
+
         # --------------------------------------------------------- #
         # Assistant
         # --------------------------------------------------------- #
 
         sections.append("## Assistant Response")
+
+        print("Sections:")
+        for i, section in enumerate(sections):
+            print(f"{i}: {repr(section)} ({type(section)})")
 
         return "\n\n".join(sections)

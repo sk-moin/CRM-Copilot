@@ -41,6 +41,7 @@ async def test_agent_chat_success() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "What is CRM Copilot?",
         "messages": [],
@@ -61,6 +62,7 @@ async def test_agent_chat_success() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -82,6 +84,7 @@ async def test_agent_chat_with_retrieved_documents() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Explain RAG",
         "messages": [],
@@ -109,6 +112,7 @@ async def test_agent_chat_with_retrieved_documents() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -127,6 +131,7 @@ async def test_agent_chat_without_documents() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Hello",
         "messages": [],
@@ -147,6 +152,7 @@ async def test_agent_chat_without_documents() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -171,6 +177,7 @@ async def test_agent_chat_propagates_runner_exception() -> None:
         await service.run(
             conversation_id=uuid4(),
             tenant_id=uuid4(),
+            org_id=uuid4(),
             user_id=uuid4(),
             query="Hello",
         )
@@ -185,6 +192,7 @@ async def test_agent_chat_returns_usage() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Hello",
         "messages": [],
@@ -210,6 +218,7 @@ async def test_agent_chat_returns_usage() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )
@@ -226,6 +235,7 @@ async def test_agent_chat_returns_errors() -> None:
     expected_state: AgentState = {
         "conversation_id": uuid4(),
         "tenant_id": uuid4(),
+        "org_id": uuid4(),
         "user_id": uuid4(),
         "query": "Hello",
         "messages": [],
@@ -251,6 +261,7 @@ async def test_agent_chat_returns_errors() -> None:
     result = await service.run(
         conversation_id=expected_state["conversation_id"],
         tenant_id=expected_state["tenant_id"],
+        org_id=expected_state["org_id"],
         user_id=expected_state["user_id"],
         query=expected_state["query"],
     )

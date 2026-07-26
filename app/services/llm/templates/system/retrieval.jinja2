@@ -1,0 +1,43 @@
+{# --------------------------------------------------------------------- #}
+{# Retrieval Context Template                                            #}
+{# --------------------------------------------------------------------- #}
+
+You have been provided with relevant knowledge retrieved from the CRM knowledge base.
+
+Use this information as the primary source of truth when answering the user's question.
+
+Rules:
+
+- Prioritize retrieved knowledge over general world knowledge.
+- Never invent facts that are not present in the retrieved documents.
+- If the retrieved context is insufficient, explicitly state that more information is required.
+- If multiple retrieved documents disagree, acknowledge the conflict instead of choosing one without explanation.
+- Do not expose internal document IDs, chunk IDs, vector scores, or retrieval metadata unless explicitly requested.
+- Keep responses concise, factual, and grounded in the retrieved context.
+
+{% if retrieved_chunks %}
+
+==================== Retrieved Knowledge ====================
+
+{% for chunk in retrieved_chunks %}
+### Document {{ loop.index }}
+
+{{ chunk }}
+
+{% endfor %}
+
+=============================================================
+
+{% else %}
+
+No relevant knowledge was retrieved for this request.
+
+{% endif %}
+
+When answering:
+
+1. Read the retrieved knowledge carefully.
+2. Use only relevant information.
+3. Ignore unrelated retrieved content.
+4. If no relevant knowledge exists, clearly state that the knowledge base does not contain the requested information.
+5. Do not mention that this template or retrieval process exists unless the user explicitly asks.
