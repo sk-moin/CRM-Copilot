@@ -13,6 +13,7 @@ from app.rag.embeddings.embedding_provider import (
     EmbeddingProvider,
     create_embedding_provider,
 )
+
 from app.rag.exceptions import EmbeddingError
 
 VECTOR_SIZE = 384
@@ -156,15 +157,15 @@ async def test_embed_documents_preserves_order(
 
 
 @patch("app.rag.embeddings.embedding_provider.OpenAIEmbeddings")
-@patch("app.rag.embeddings.embedding_provider.settings")
+@patch("app.rag.embeddings.embedding_provider.get_settings")
 def test_create_embedding_provider(
-    mock_settings,
+    mock_get_settings,
     mock_openai,
 ):
-    mock_settings.EMBEDDING_PROVIDER = "openai"
-    mock_settings.EMBEDDING_MODEL = "text-embedding-3-small"
-    mock_settings.OPENAI_API_KEY = "test-key"
-    mock_settings.OPENAI_BASE_URL = "https://api.openai.com/v1"
+    mock_get_settings.return_value.EMBEDDING_PROVIDER = "openai"
+    mock_get_settings.return_value.EMBEDDING_MODEL = "text-embedding-3-small"
+    mock_get_settings.return_value.OPENAI_API_KEY = "test-key"
+    mock_get_settings.return_value.OPENAI_BASE_URL = "https://api.openai.com/v1"
 
     mock_openai.return_value = MagicMock(spec=Embeddings)
 

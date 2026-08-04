@@ -91,6 +91,7 @@ def create_embedding_provider() -> EmbeddingProvider:
             OpenAIEmbeddings(
                 model=settings.EMBEDDING_MODEL,
                 api_key=settings.OPENAI_API_KEY,
+                base_url=settings.OPENAI_BASE_URL,
             )
         )
 

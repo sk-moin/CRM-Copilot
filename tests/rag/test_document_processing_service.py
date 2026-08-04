@@ -105,21 +105,17 @@ def parsed_document():
 def split_chunks():
     return [
         SimpleNamespace(
-            content="Chunk 1",
-            chunk_index=0,
-            start_char=0,
-            end_char=50,
+            page_content="Chunk 1",
             metadata={
                 "page": 1,
+                "start_index": 0,
             },
         ),
         SimpleNamespace(
-            content="Chunk 2",
-            chunk_index=1,
-            start_char=51,
-            end_char=100,
+            page_content="Chunk 2",
             metadata={
                 "page": 1,
+                "start_index": 51,
             },
         ),
     ]
@@ -163,7 +159,7 @@ async def test_process_success(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split.return_value = split_chunks
+    splitter.split_text.return_value = split_chunks
 
     chunk_repository.bulk_create.return_value = created_chunks
 
@@ -189,9 +185,9 @@ async def test_process_success(
     # Assert splitter
     # ------------------------------------------------------------------ #
 
-    splitter.split.assert_called_once()
+    splitter.split_text.assert_called_once()
 
-    splitter_args = splitter.split.call_args
+    splitter_args = splitter.split_text.call_args
 
     assert (
         splitter_args.args[0]
@@ -339,7 +335,7 @@ async def test_process_fails_when_splitter_raises(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split.side_effect = ValueError(
+    splitter.split_text.side_effect = ValueError(
         "Splitter failed."
     )
 
@@ -348,7 +344,7 @@ async def test_process_fails_when_splitter_raises(
 
     parser.parse.assert_called_once()
 
-    splitter.split.assert_called_once()
+    splitter.split_text.assert_called_once()
 
     document_repository.mark_failed.assert_awaited_once()
 
@@ -379,7 +375,7 @@ async def test_process_fails_when_vector_store_raises(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split.return_value = split_chunks
+    splitter.split_text.return_value = split_chunks
 
     chunk_repository.bulk_create.return_value = created_chunks
 
@@ -428,7 +424,7 @@ async def test_process_fails_when_chunk_repository_raises(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split.return_value = split_chunks
+    splitter.split_text.return_value = split_chunks
 
     chunk_repository.bulk_create.side_effect = RuntimeError(
         "Database write failed."
@@ -468,7 +464,7 @@ async def test_process_handles_empty_document(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split.return_value = []
+    splitter.split_text.return_value = []
 
     chunk_repository.bulk_create.return_value = []
 
@@ -539,7 +535,7 @@ async def test_process_calls_services_in_expected_order(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split.return_value = split_chunks
+    splitter.split_text.return_value = split_chunks
 
     chunk_repository.bulk_create.return_value = created_chunks
 
@@ -553,7 +549,7 @@ async def test_process_calls_services_in_expected_order(
 
     parser.parse.assert_called_once()
 
-    splitter.split.assert_called_once()
+    splitter.split_text.assert_called_once()
 
     chunk_repository.bulk_create.assert_awaited_once()
 

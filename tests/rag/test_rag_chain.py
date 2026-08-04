@@ -105,8 +105,12 @@ async def test_generate_success(
     Successful generation should return a RAGResponse.
     """
 
-    provider.complete.return_value = (
-        "CRM helps manage customer relationships."
+    from types import SimpleNamespace
+
+    provider.complete.return_value = SimpleNamespace(
+        content="CRM helps manage customer relationships.",
+        usage=None,
+        finish_reason="stop",
     )
 
     response = await rag_chain.generate(
@@ -363,14 +367,14 @@ def test_build_context_with_documents(
         documents,
     )
 
-    assert "[1] CRM Guide" in context
+    assert "[Source 1] CRM Guide" in context
 
     assert (
         "CRM stands for Customer Relationship Management."
         in context
     )
 
-    assert "[2] sales.pdf" in context
+    assert "[Source 2] sales.pdf" in context
 
     assert (
         "Sales opportunities are tracked using pipelines."
@@ -415,12 +419,10 @@ def test_build_context_without_metadata(
         docs,
     )
 
-    assert "[1] Document 1" in context
-
-    assert "[2] Document 2" in context
-
+    assert "[Source 1] Document" in context
     assert "First document" in context
 
+    assert "[Source 2] Document" in context
     assert "Second document" in context
 
 
@@ -445,7 +447,7 @@ def test_build_context_prefers_title_over_filename(
         docs,
     )
 
-    assert "[1] CRM Handbook" in context
+    assert "[Source 1] CRM Handbook" in context
 
     assert "crm.pdf" not in context
 

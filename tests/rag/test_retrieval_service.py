@@ -405,7 +405,7 @@ async def test_retrieved_chunk_payload_is_correct(
     for index, row in enumerate(payload):
 
         assert (
-            row["retrieval_trace_id"]
+            row["trace_id"]
             == retrieval_trace.id
         )
 
@@ -417,10 +417,10 @@ async def test_retrieved_chunk_payload_is_correct(
         )
 
         assert (
-            row["document_chunk_id"]
+            row["chunk_id"]
             == retrieval_result.documents[index]
             .metadata["chunk_id"]
-            or str(row["document_chunk_id"])
+            or str(row["chunk_id"])
             == retrieval_result.documents[index]
             .metadata["chunk_id"]
         )
