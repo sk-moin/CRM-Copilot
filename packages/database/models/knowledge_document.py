@@ -18,7 +18,7 @@ class KnowledgeDocument(Base):
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     tenant_id = Column(PGUUID(as_uuid=True), nullable=False)
-    organization_id = Column(PGUUID(as_uuid=True), nullable=False)
+    org_id = Column(PGUUID(as_uuid=True), nullable=False)
     owner_id = Column(PGUUID(as_uuid=True), nullable=True)
 
     title = Column(String, nullable=False)

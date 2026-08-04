@@ -33,6 +33,26 @@ class DocumentUploadResponse(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# Processing Status
+# --------------------------------------------------------------------------- #
+
+
+class DocumentProcessingResponse(BaseModel):
+    """Document processing status response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: UUID
+
+    status: DocumentProcessingStatus
+
+    chunk_count: int
+
+    processed_at: datetime | None = None
+
+    error_message: str | None = None
+
+# --------------------------------------------------------------------------- #
 # Search
 # --------------------------------------------------------------------------- #
 
@@ -99,7 +119,7 @@ class DocumentResponse(BaseModel):
 
     tenant_id: UUID
 
-    organization_id: UUID
+    org_id: UUID
 
     owner_id: UUID | None
 

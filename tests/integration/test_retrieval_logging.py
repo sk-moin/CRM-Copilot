@@ -38,7 +38,7 @@ async def test_complete_retrieval_logging_flow(
 
     document = KnowledgeDocument(
         tenant_id=seeded_tenant.id,
-        organization_id=seeded_organization.id,
+        org_id=seeded_organization.id,
         owner_id=None,
         title="RAG Document",
         filename="rag.pdf",
@@ -154,7 +154,7 @@ async def test_delete_trace_cascades_chunks(
 
     document = KnowledgeDocument(
         tenant_id=seeded_tenant.id,
-        organization_id=seeded_organization.id,
+        org_id=seeded_organization.id,
         owner_id=None,
         title="Cascade Document",
         filename="cascade.pdf",

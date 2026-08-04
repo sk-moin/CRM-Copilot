@@ -1,27 +1,15 @@
-"""
-app/agent/nodes/retrieve.py
-
-Retrieval node for the LangGraph AI Agent.
-
-Responsibilities
-----------------
-- Execute semantic retrieval
-- Populate the graph state with retrieved documents
-- Store retrieval metadata
-- Delegate retrieval observability to RetrievalService
-
-This node does NOT:
-- Build prompts
-- Call the LLM
-- Generate citations
-"""
-
 from __future__ import annotations
 
 from app.agent.state import AgentState
+from app.observability.tracing import traced
 from app.rag.retrieval_service import RetrievalService
 
 
+@traced(
+    name="retrieve-node",
+    run_type="retriever",
+    tags=["agent", "retrieval"],
+)
 async def retrieve_node(
     state: AgentState,
     *,
@@ -29,9 +17,6 @@ async def retrieve_node(
 ) -> AgentState:
     """
     Execute semantic retrieval.
-
-    RetrievalService automatically records RetrievalTrace and
-    RetrievedChunk records, so this node only updates the graph state.
     """
 
     try:
@@ -40,10 +25,23 @@ async def retrieve_node(
             query=state["query"],
         )
 
+        print("=" * 80)
+        print("RETRIEVE RESULT")
+        print("documents:", len(result.documents))
+        print("=" * 80)
+
         state["retrieved_documents"] = result.documents
         state["retrieval_metadata"] = result.retrieval_metadata
 
+        print("Retriever returned:", len(result.documents))
+
     except Exception as exc:
+        print("=" * 80)
+        print("RETRIEVE NODE EXCEPTION")
+        print(type(exc))
+        print(exc)
+        print("=" * 80)
+
         state.setdefault("errors", []).append(
             {
                 "node": "retrieve",
@@ -53,5 +51,7 @@ async def retrieve_node(
 
         state["retrieved_documents"] = []
         state["retrieval_metadata"] = {}
+
+    print("STATE DOCUMENT COUNT:", len(state["retrieved_documents"]))
 
     return state

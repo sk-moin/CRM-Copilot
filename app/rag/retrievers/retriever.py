@@ -68,7 +68,7 @@ class Retriever:
         self,
         *,
         query: str,
-        top_k: int = 5,
+        top_k: int = 20,
         score_threshold: float = 0.0,
         document_id: UUID | None = None,
     ) -> RetrievalResult:
@@ -92,6 +92,27 @@ class Retriever:
             for doc, score in results
             if score >= score_threshold
         ]
+
+        # ---------------------------------------------------------
+        # Remove duplicate chunks
+        # ---------------------------------------------------------
+
+        seen = set()
+        unique_results = []
+
+        for doc, score in results:
+            key = (
+                doc.metadata.get("document_id"),
+                doc.metadata.get("chunk_index"),
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            unique_results.append((doc, score))
+
+        results = unique_results
 
         retrieval_metadata = {
             "retriever": {
@@ -127,7 +148,7 @@ class Retriever:
         self,
         *,
         query: str,
-        top_k: int = 5,
+        top_k: int = 20,
         document_id: UUID | None = None,
     ) -> list[Document]:
         """
@@ -150,7 +171,7 @@ class Retriever:
         self,
         *,
         query: str,
-        top_k: int = 5,
+        top_k: int = 20,
         document_id: UUID | None = None,
     ) -> list[tuple[Document, float]]:
         """

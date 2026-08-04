@@ -24,7 +24,8 @@ from packages.database.models.document_chunk import DocumentChunk
 from packages.database.repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
-
+from app.observability.tracing import traced, trace_context
+from app.core.config import get_settings
 
 
 class PGVectorStore:
@@ -35,9 +36,11 @@ class PGVectorStore:
         *,
         repository: DocumentChunkRepository,
         embedding_provider: EmbeddingProvider,
+        similarity_threshold: float = 0.30,
     ) -> None:
         self.repository = repository
         self.embedding_provider = embedding_provider
+        self.similarity_threshold = similarity_threshold
 
     # ------------------------------------------------------------------ #
     # Indexing
@@ -123,10 +126,15 @@ class PGVectorStore:
                 "Similarity search failed."
             ) from exc
 
+
     # ------------------------------------------------------------------ #
     # Search With Scores
     # ------------------------------------------------------------------ #
-
+    @traced(
+        name="similarity-search",
+        run_type="retriever",
+        tags=["pgvector", "vector-store"],
+    )
     async def similarity_search_with_scores(
         self,
         *,
@@ -136,24 +144,84 @@ class PGVectorStore:
     ) -> list[tuple[Document, float]]:
         """
         Return Documents together with similarity scores.
-
-        Repository currently does not expose scores, therefore this
-        method returns a default similarity score of 1.0 until
-        repository support is added.
         """
 
-        embedding = await self.embedding_provider.embed_query(query)
+        if not query.strip():
+            raise VectorStoreError(
+                "Query cannot be empty."
+            )
 
-        results = await self.repository.similarity_search_with_scores(
-            embedding=embedding,
-            limit=k,
-            document_id=document_id,
-        )
+        settings = get_settings()
 
-        return [
-            (self._to_document(chunk), score)
-            for chunk, score in results
-        ]
+        try:
+            with trace_context(
+                metadata={
+                    "embedding_model": settings.EMBEDDING_MODEL,
+                    "embedding_provider": settings.EMBEDDING_PROVIDER,
+                    "vector_store": "pgvector",
+                },
+                tags=["embedding"],
+            ):
+                embedding = await self.embedding_provider.embed_query(
+                    query
+                )
+
+                print("=" * 80)
+                print("QUERY:", query)
+                print("Embedding dimension:", len(embedding))
+                print("=" * 80)
+
+            with trace_context(
+                metadata={
+                    "top_k": k,
+                    "document_id": (
+                        str(document_id)
+                        if document_id
+                        else None
+                    ),
+                },
+                tags=["pgvector-search"],
+            ):
+                results = await self.repository.similarity_search_with_scores(
+                    embedding=embedding,
+                    limit=k,
+                    document_id=document_id,
+                )
+
+                results = [
+                    (chunk, score)
+                    for chunk, score in results
+                    if score >= self.similarity_threshold
+                ]
+
+                print("Repository returned", len(results), "rows")
+
+                for chunk, score in results:
+                    print(
+                        "score=", score,
+                        "chunk=", chunk.chunk_index,
+                        "doc=", chunk.document_id,
+                    )
+
+                documents = [
+                    (
+                        self._to_document(chunk),
+                        score,
+                    )
+                    for chunk, score in results
+                ]
+
+                return documents
+
+        except VectorStoreError:
+            raise
+
+        except Exception as exc:
+            import traceback
+
+            traceback.print_exc()
+
+            raise
 
     # ------------------------------------------------------------------ #
     # Helpers

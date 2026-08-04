@@ -2,16 +2,6 @@
 app/rag/embeddings/embedding_provider.py
 
 Embedding provider abstraction for the CRM Copilot RAG pipeline.
-
-This module wraps LangChain embedding models while exposing a
-stable interface to the rest of the application.
-
-Supported providers
--------------------
-- OpenAI
-- OpenRouter (OpenAI-compatible)
-- Azure OpenAI (future)
-- HuggingFace
 """
 
 from __future__ import annotations
@@ -23,9 +13,10 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
 
 from app.core.config import get_settings
+from app.rag.embeddings.mock_embedding_provider import (
+    MockEmbeddingProvider,
+)
 from app.rag.exceptions import EmbeddingError
-from app.rag.embeddings.mock_embedding_provider import MockEmbeddingProvider
-settings = get_settings()
 
 
 class EmbeddingProvider:
@@ -49,9 +40,7 @@ class EmbeddingProvider:
         """Generate embeddings for multiple documents."""
 
         try:
-            return await self._embeddings.aembed_documents(
-                list(texts)
-            )
+            return await self._embeddings.aembed_documents(list(texts))
         except Exception as exc:
             raise EmbeddingError(
                 "Failed to generate document embeddings."
@@ -75,38 +64,34 @@ def create_embedding_provider() -> EmbeddingProvider:
     """
     Create the configured embedding provider.
 
-    Supported values
-
-    - openai
+    Supported providers:
     - huggingface
+    - openai
+    - mock
     """
 
+    settings = get_settings()
     provider = settings.EMBEDDING_PROVIDER.lower()
 
-    if provider == "openai":
-        embeddings = OpenAIEmbeddings(
-            model=settings.EMBEDDING_MODEL,
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.OPENAI_BASE_URL,
-        )
-
-        return EmbeddingProvider(
-            embeddings,
-        )
-
     if provider == "huggingface":
-        embeddings = HuggingFaceEmbeddings(
-            model_name=settings.EMBEDDING_MODEL,
-            model_kwargs={
-                "device": "cpu",
-            },
-            encode_kwargs={
-                "normalize_embeddings": True,
-            },
+        return EmbeddingProvider(
+            HuggingFaceEmbeddings(
+                model_name=settings.EMBEDDING_MODEL,
+                model_kwargs={
+                    "device": "cpu",
+                },
+                encode_kwargs={
+                    "normalize_embeddings": True,
+                },
+            )
         )
 
+    if provider == "openai":
         return EmbeddingProvider(
-            embeddings,
+            OpenAIEmbeddings(
+                model=settings.EMBEDDING_MODEL,
+                api_key=settings.OPENAI_API_KEY,
+            )
         )
 
     if provider == "mock":

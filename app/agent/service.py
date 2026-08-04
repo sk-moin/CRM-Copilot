@@ -26,7 +26,7 @@ from uuid import UUID
 
 from app.agent.runner import AgentRunner
 from app.agent.state import AgentState
-
+from app.observability.tracing import traced
 
 class AgentService:
     """
@@ -39,6 +39,11 @@ class AgentService:
     ) -> None:
         self.runner = runner
 
+
+    @traced(
+        name="agent-run",
+        run_type="chain",
+    )
     async def run(
         self,
         *,
@@ -48,8 +53,6 @@ class AgentService:
         org_id: UUID,
         query: str,
     ) -> AgentState:
-
-    
 
         initial_state: AgentState = {
             "conversation_id": conversation_id,
@@ -68,6 +71,8 @@ class AgentService:
             "citations": [],
             "usage": {},
             "errors": [],
+
+            "finish_reason": "stop",
         }
 
         return await self.runner.run(initial_state)

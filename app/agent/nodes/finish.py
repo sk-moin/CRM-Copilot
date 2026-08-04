@@ -1,26 +1,15 @@
-"""
-app/agent/nodes/finish.py
-
-Finalization node for the LangGraph AI Agent.
-
-Responsibilities
-----------------
-- Prepare the final agent output
-- Extract citations from retrieved documents
-- Ensure the graph state is complete before returning
-
-This node does NOT:
-- Retrieve documents
-- Build prompts
-- Call the LLM
-"""
-
 from __future__ import annotations
 
 from app.agent.state import AgentState
 from app.agent.utils.citations import build_citations
+from app.observability.tracing import traced
 
 
+@traced(
+    name="finish-node",
+    run_type="chain",
+    tags=["agent", "finish"],
+)
 async def finish_node(state: AgentState) -> AgentState:
     """
     Finalize the agent state before graph completion.

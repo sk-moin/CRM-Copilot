@@ -117,11 +117,11 @@ class KnowledgeDocumentRepository(BaseRepository):
 
         return await self.update_processing_result(
             document_id=document_id,
-            status=DocumentProcessingStatus.PROCESSING,
+            status=DocumentProcessingStatus.PARSING,
             processing_started_at=datetime.utcnow(),
         )
 
-    async def mark_completed(
+    async def mark_ready(
         self,
         document_id: UUID,
         *,
@@ -131,7 +131,7 @@ class KnowledgeDocumentRepository(BaseRepository):
 
         return await self.update_processing_result(
             document_id=document_id,
-            status=DocumentProcessingStatus.COMPLETED,
+            status=DocumentProcessingStatus.READY,
             chunk_count=chunk_count,
             processed_at=datetime.utcnow(),
             error_message=None,

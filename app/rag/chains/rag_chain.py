@@ -7,6 +7,7 @@ Responsibilities
 ----------------
 - Build prompt from retrieved documents
 - Invoke the configured LLM provider
+
 - Return generated answer together with retrieval metadata
 
 Retrieval is handled by RetrievalService.
@@ -25,7 +26,8 @@ from app.rag.retrievers.retriever import RetrievalResult
 from app.services.llm.base import LLMProvider
 
 from app.services.llm.models import TokenUsage
-
+from app.observability.tracing import traced
+from app.observability.tracing import trace_context
 
 @dataclass(slots=True)
 class RAGResult:
@@ -56,11 +58,11 @@ class RAGResult:
 
 @dataclass(slots=True)
 class RAGResponse:
-    """Response returned from the RAG pipeline."""
-
     answer: str
     documents: list[Document]
     similarity_scores: list[float]
+    usage: TokenUsage = field(default_factory=TokenUsage.empty)
+    finish_reason: str = "stop"
 
 
 # --------------------------------------------------------------------------- #
@@ -86,6 +88,11 @@ class RAGChain:
     # Generate
     # ------------------------------------------------------------------ #
 
+    @traced(
+        name="rag-generate",
+        run_type="chain",
+    )
+
     async def generate(
         self,
         *,
@@ -106,6 +113,11 @@ class RAGChain:
                 retrieval_result.documents,
             )
 
+            print("=" * 80)
+            print("FULL CONTEXT")
+            print(context)
+            print("=" * 80)
+
             messages = [
                 {
                     "role": "system",
@@ -125,14 +137,29 @@ class RAGChain:
                 },
             ]
 
-            answer = await self.provider.complete(
-                messages=messages,
-            )
+            
+
+            with trace_context(
+                metadata={
+                    "llm_provider": type(self.provider).__name__,
+                    "retrieved_chunks": retrieval_result.retrieved_chunks,
+                    "document_count": len(retrieval_result.documents),
+                },
+                tags=[
+                    "rag",
+                    "generation",
+                ],
+            ):
+                completion = await self.provider.complete(
+                    messages=messages,
+                )
 
             return RAGResponse(
-                answer=answer,
+                answer=completion.content,
                 documents=retrieval_result.documents,
                 similarity_scores=retrieval_result.similarity_scores,
+                usage=completion.usage,
+                finish_reason=completion.finish_reason,
             )
 
         except Exception as exc:
@@ -144,7 +171,10 @@ class RAGChain:
     # ------------------------------------------------------------------ #
     # Run
     # ------------------------------------------------------------------ #
-        
+    @traced(
+        name="rag-chain",
+        run_type="chain",
+    )
     async def run(
         self,
         *,
@@ -152,6 +182,13 @@ class RAGChain:
         documents: list[Document],
         prompt: str | None = None,
     ) -> RAGResult:
+        """
+        Execute the RAG chain.
+
+        NOTE:
+        The prompt parameter is currently ignored because prompt construction
+        happens inside generate(). It is kept only for future compatibility.
+        """
 
         retrieval_result = RetrievalResult(
             documents=documents,
@@ -164,18 +201,23 @@ class RAGChain:
             retrieval_result=retrieval_result,
         )
 
+        
+
         return RAGResult(
             response=rag_response.answer,
             documents=rag_response.documents,
             similarity_scores=rag_response.similarity_scores,
-            usage=TokenUsage.empty(),
-            finish_reason="stop",
+            usage=rag_response.usage,
+            finish_reason=rag_response.finish_reason,
         )
 
     # ------------------------------------------------------------------ #
     # Stream
     # ------------------------------------------------------------------ #
-
+    @traced(
+        name="rag-stream",
+        run_type="chain",
+    )
     async def stream(
         self,
         *,
@@ -194,6 +236,11 @@ class RAGChain:
         context = self._build_context(
             retrieval_result.documents,
         )
+
+        print("=" * 80)
+        print("FULL CONTEXT")
+        print(context)
+        print("=" * 80)
 
         messages = [
             {
@@ -214,10 +261,21 @@ class RAGChain:
             },
         ]
 
-        async for chunk in self.provider.stream(
-            messages=messages,
+        with trace_context(
+            metadata={
+                "llm_provider": type(self.provider).__name__,
+                "retrieved_chunks": retrieval_result.retrieved_chunks,
+                "document_count": len(retrieval_result.documents),
+            },
+            tags=[
+                "rag",
+                "stream",
+            ],
         ):
-            yield chunk
+            async for chunk in self.provider.stream(
+                messages=messages,
+            ):
+                yield chunk
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -227,28 +285,29 @@ class RAGChain:
     def _build_context(
         documents: list[Document],
     ) -> str:
-        """
-        Convert retrieved documents into prompt context.
-        """
-
         if not documents:
             return "No relevant context found."
 
-        blocks: list[str] = []
+        seen = set()
+        blocks = []
 
-        for index, document in enumerate(
-            documents,
-            start=1,
-        ):
+        for document in documents:
+            content = document.page_content.strip()
+
+            if content in seen:
+                continue
+
+            seen.add(content)
+
             title = (
                 document.metadata.get("title")
                 or document.metadata.get("filename")
-                or f"Document {index}"
+                or "Document"
             )
 
             blocks.append(
-                f"[{index}] {title}\n"
-                f"{document.page_content}"
+                f"[Source {len(blocks)+1}] {title}\n"
+                f"{content}"
             )
 
         return "\n\n".join(blocks)

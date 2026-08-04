@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from app.core.config import Settings
-from app.services.llm.models import StreamChunk
+from app.services.llm.models import StreamChunk, CompletionResult
 
 
 class LLMProvider(ABC):
@@ -79,7 +79,7 @@ class LLMProvider(ABC):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
-    ) -> str:
+    ) -> CompletionResult:
         """Generate a non-streaming completion.
 
         Args:

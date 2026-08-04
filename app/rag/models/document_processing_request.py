@@ -39,7 +39,7 @@ class DocumentProcessingRequest:
     """
 
     tenant_id: UUID
-    organization_id: UUID
+    org_id: UUID
     owner_id: UUID | None
 
     title: str

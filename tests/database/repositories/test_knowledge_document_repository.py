@@ -21,7 +21,7 @@ async def repository(async_session, tenant, organization, user):
 async def test_list_by_status(repository, organization, user):
     """Should list only documents with the requested status."""
     await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="Doc 1",
         filename="doc1.pdf",
@@ -34,7 +34,7 @@ async def test_list_by_status(repository, organization, user):
     )
 
     await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="Doc 2",
         filename="doc2.pdf",
@@ -56,7 +56,7 @@ async def test_list_by_status(repository, organization, user):
 async def test_update_status(repository, organization, user):
     """Should update processing status."""
     document = await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="Test",
         filename="test.pdf",
@@ -80,7 +80,7 @@ async def test_update_status(repository, organization, user):
 async def test_update_processing_info(repository, organization, user):
     """Should update processing metadata."""
     document = await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="Test",
         filename="test.pdf",
@@ -109,7 +109,7 @@ async def test_update_processing_info(repository, organization, user):
 async def test_update_processing_error(repository, organization, user):
     """Should store processing error."""
     document = await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="Broken",
         filename="broken.pdf",
@@ -133,7 +133,7 @@ async def test_update_processing_error(repository, organization, user):
 async def test_list_by_document_type(repository, organization, user):
     """Should filter by document type."""
     await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="PDF",
         filename="a.pdf",
@@ -145,7 +145,7 @@ async def test_list_by_document_type(repository, organization, user):
     )
 
     await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="DOCX",
         filename="b.docx",
@@ -166,7 +166,7 @@ async def test_list_by_document_type(repository, organization, user):
 async def test_get_with_chunks(repository, organization, user):
     """Should load document with chunk relationship."""
     document = await repository.create(
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
         title="Knowledge",
         filename="knowledge.pdf",

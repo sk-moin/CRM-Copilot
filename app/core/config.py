@@ -36,23 +36,54 @@ class Settings(BaseSettings):
 
     # OpenAI provider configuration
     OPENAI_API_KEY: str = Field(default="", env="OPENAI_API_KEY")
+    OPENAI_BASE_URL: str | None = Field(default=None, env="OPENAI_BASE_URL")
     OPENAI_MODEL: str = Field(default="gpt-4o", env="OPENAI_MODEL")
     OPENAI_TIMEOUT: float = Field(default=60.0, env="OPENAI_TIMEOUT")
     OPENAI_MAX_RETRIES: int = Field(default=3, env="OPENAI_MAX_RETRIES")
 
+    # OpenRouter provider configuration
+    OPENROUTER_API_KEY: str | None = Field(default=None, env="OPENROUTER_API_KEY")
+    OPENROUTER_MODEL: str = Field(default="openai/gpt-oss-20b:free", env="OPENROUTER_MODEL")
+
+    LLM_PROVIDER: str = Field(default="openrouter", env="LLM_PROVIDER")
+
+
+    LANGSMITH_API_KEY: str | None = Field(
+        default=None,
+        env="LANGSMITH_API_KEY",
+    )
+
+    LANGSMITH_PROJECT: str = Field(
+        default="crm-copilot",
+        env="LANGSMITH_PROJECT",
+    )
+
+    LANGSMITH_TRACING: bool = Field(
+        default=False,
+        env="LANGSMITH_TRACING",
+    )
+
+    ENVIRONMENT: str = "development"
+
     EMBEDDING_PROVIDER: str = Field(
-    default="openai",
+    default="huggingface",
     env="EMBEDDING_PROVIDER",
     )
 
     EMBEDDING_MODEL: str = Field(
-        default="text-embedding-3-small",
+        default="sentence-transformers/all-MiniLM-L6-v2",
         env="EMBEDDING_MODEL",
     )
 
-    OPENAI_BASE_URL: str | None = Field(
+    HF_TOKEN: str | None = Field(
         default=None,
-        env="OPENAI_BASE_URL",
+        env="HF_TOKEN",
+    )
+    
+
+    APP_URL: str = Field(
+        default="http://localhost:8000",
+        env="APP_URL",
     )
 
 
@@ -73,9 +104,24 @@ OPENAI_MODEL: Final[str] = _settings.OPENAI_MODEL
 OPENAI_TIMEOUT: Final[float] = _settings.OPENAI_TIMEOUT
 OPENAI_MAX_RETRIES: Final[int] = _settings.OPENAI_MAX_RETRIES
 
+OPENROUTER_API_KEY: str | None = _settings.OPENROUTER_API_KEY
+OPENROUTER_MODEL: str = _settings.OPENROUTER_MODEL
 
+LANGSMITH_API_KEY: str = _settings.LANGSMITH_API_KEY
+LANGSMITH_PROJECT: str = _settings.LANGSMITH_PROJECT
+LANGSMITH_TRACING: bool = _settings.LANGSMITH_TRACING
 
-_settings = Settings()
+EMBEDDING_PROVIDER: str = _settings.EMBEDDING_PROVIDER
+EMBEDDING_MODEL: str = _settings.EMBEDDING_MODEL
+
+HF_TOKEN: str | None = _settings.HF_TOKEN
+
+LLM_PROVIDER: str = _settings.LLM_PROVIDER
+
+APP_URL: str = _settings.APP_URL
+
+ENVIRONMENT: str = "development"
+
 
 
 def get_settings() -> Settings:
@@ -101,4 +147,15 @@ __all__ = [
     "OPENAI_MODEL",
     "OPENAI_TIMEOUT",
     "OPENAI_MAX_RETRIES",
+    "OPENROUTER_API_KEY",
+    "OPENROUTER_MODEL",
+    "LANGSMITH_API_KEY",
+    "LANGSMITH_PROJECT",
+    "LANGSMITH_TRACING",
+    "APP_URL",
+    "ENVIRONMENT",
+    "LLM_PROVIDER",
+    "EMBEDDING_PROVIDER",
+    "EMBEDDING_MODEL",
+    "HF_TOKEN",
 ]

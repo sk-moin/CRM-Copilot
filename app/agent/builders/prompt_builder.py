@@ -1,18 +1,5 @@
 """
 app/agent/builders/prompt_builder.py
-
-Prompt builder for the CRM Copilot AI Agent.
-
-Responsibilities
-----------------
-- Build the final prompt sent to the LLM
-- Combine system instructions, conversation history,
-  retrieved context, and the current user query
-
-This class does NOT:
-- Retrieve documents
-- Call the LLM
-- Execute LangGraph nodes
 """
 
 from __future__ import annotations
@@ -35,22 +22,6 @@ class PromptBuilder:
     ) -> str:
         """
         Build the complete prompt.
-
-        Parameters
-        ----------
-        query:
-            Current user query.
-
-        messages:
-            Conversation history.
-
-        documents:
-            Retrieved LangChain documents.
-
-        Returns
-        -------
-        str
-            Complete prompt ready for the LLM.
         """
 
         sections: list[str] = []
@@ -60,7 +31,7 @@ class PromptBuilder:
         # --------------------------------------------------------- #
 
         if system_prompt:
-            sections.append(system_prompt)
+            sections.append(system_prompt.strip())
 
         # --------------------------------------------------------- #
         # Conversation History
@@ -103,10 +74,8 @@ class PromptBuilder:
                 )
 
                 context_blocks.append(
-                    (
-                        f"[Source {index}] {source}\n"
-                        f"{document.page_content.strip()}"
-                    )
+                    f"[Source {index}] {source}\n"
+                    f"{document.page_content.strip()}"
                 )
 
             sections.append(
@@ -123,20 +92,22 @@ class PromptBuilder:
             + query.strip()
         )
 
-        # System Prompt
-        if system_prompt is not None:
-            sections.append(system_prompt)
-        else:
-            sections.append("")  # or omit entirely
-
         # --------------------------------------------------------- #
-        # Assistant
+        # Assistant Response
         # --------------------------------------------------------- #
 
         sections.append("## Assistant Response")
 
-        print("Sections:")
+        # Debug
+        print("=" * 80)
+        print("Prompt Sections")
+        print("=" * 80)
+
         for i, section in enumerate(sections):
-            print(f"{i}: {repr(section)} ({type(section)})")
+            print(f"\nSECTION {i}")
+            print("-" * 40)
+            print(section[:500])
+
+        print("=" * 80)
 
         return "\n\n".join(sections)

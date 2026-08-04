@@ -143,7 +143,7 @@ async def knowledge_document(
 ):
     document = KnowledgeDocument(
         tenant_id=tenant.id,
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=None,
         title="Repository Document",
         filename="document.pdf",

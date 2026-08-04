@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.observability.tracing import trace_context, traced
 from app.services.llm.prompt_loader import PromptLoader
 from app.services.llm.prompt_renderer import PromptRenderer
 
@@ -40,6 +41,11 @@ class PromptManager:
         self.prompt_loader = prompt_loader
         self.prompt_renderer = prompt_renderer
 
+    @traced(
+        name="prompt-load",
+        run_type="chain",
+        tags=["prompt"],
+    )
     async def get_prompt(
         self,
         *,
@@ -48,22 +54,30 @@ class PromptManager:
     ) -> str | None:
         """
         Return the active prompt template.
-
-        Returns
-        -------
-        str | None
         """
 
-        version = await self.prompt_loader.load_prompt(
-            org_id=org_id,
-            name=name,
-        )
+        with trace_context(
+            metadata={
+                "prompt_name": name,
+                "organization_id": str(org_id),
+            },
+            tags=["prompt", "load"],
+        ):
+            version = await self.prompt_loader.load_prompt(
+                org_id=org_id,
+                name=name,
+            )
 
         if version is None:
             return None
 
         return version.template
 
+    @traced(
+        name="prompt-render",
+        run_type="chain",
+        tags=["prompt"],
+    )
     async def render_prompt(
         self,
         *,
@@ -83,10 +97,18 @@ class PromptManager:
         if template is None:
             return None
 
-        return self.prompt_renderer.render(
-            template,
-            variables or {},
-        )
+        with trace_context(
+            metadata={
+                "prompt_name": name,
+                "organization_id": str(org_id),
+                "variable_count": len(variables or {}),
+            },
+            tags=["prompt", "render"],
+        ):
+            return self.prompt_renderer.render(
+                template,
+                variables or {},
+            )
 
     async def prompt_exists(
         self,
@@ -107,13 +129,18 @@ class PromptManager:
 
     async def invalidate_cache(
         self,
+        *,
+        org_id,
         name: str,
     ) -> None:
         """
         Remove a prompt from cache.
         """
 
-        await self.prompt_loader.invalidate(name)
+        await self.prompt_loader.invalidate(
+            org_id=org_id,
+            name=name,
+        )
 
     async def clear_cache(
         self,

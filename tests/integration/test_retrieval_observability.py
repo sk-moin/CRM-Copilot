@@ -65,7 +65,7 @@ async def test_create_trace_with_chunks(
 
     document = KnowledgeDocument(
         tenant_id=seeded_tenant.id,
-        organization_id=seeded_organization.id,
+        org_id=seeded_organization.id,
         owner_id=None,
         title="Embeddings",
         filename="embeddings.pdf",

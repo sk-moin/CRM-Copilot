@@ -28,6 +28,7 @@ from app.rag.retrievers.retriever import (
     RetrievalResult,
     Retriever,
 )
+from app.rag.rerankers.langchain_reranker import LangChainReranker
 from packages.database.models.retrieval_trace import (
     RetrievalTraceStatus,
 )
@@ -37,7 +38,10 @@ from packages.database.repositories.retrieval_trace_repository import (
 from packages.database.repositories.retrieved_chunk_repository import (
     RetrievedChunkRepository,
 )
+from app.observability.tracing import traced, trace_context
+from app.core.config import get_settings
 
+reranker = LangChainReranker(top_n=5)
 
 class RetrievalService:
     """
@@ -54,13 +58,19 @@ class RetrievalService:
         self.retriever = retriever
         self.trace_repository = retrieval_trace_repository
         self.chunk_repository = retrieved_chunk_repository
+        self.reranker = reranker
 
+    @traced(
+        name="semantic-retrieval",
+        run_type="retriever",
+        tags=["retrieval", "rag", "crm-copilot"],
+    )
     async def retrieve(
         self,
         *,
         conversation_id: UUID | None,
         query: str,
-        top_k: int = 5,
+        top_k: int = 20,
         score_threshold: float = 0.0,
         document_id: UUID | None = None,
     ) -> RetrievalResult:
@@ -73,29 +83,128 @@ class RetrievalService:
             query=query,
         )
 
-
         started_at = time.perf_counter()
 
         retrieval_metadata: dict[str, object] = {}
 
-        try:
-            result = await self.retriever.retrieve(
-                query=query,
-                top_k=top_k,
-                score_threshold=score_threshold,
-                document_id=document_id,
-            )
+        settings = get_settings()
 
-            retrieval_metadata=result.retrieval_metadata
+        try:
+            with trace_context(
+                metadata={
+                    "conversation_id": str(conversation_id)
+                    if conversation_id
+                    else None,
+                    "document_id": str(document_id)
+                    if document_id
+                    else None,
+                    "query": query,
+                    "top_k": top_k,
+                    "score_threshold": score_threshold,
+                    "component": "retrieval",
+                    "framework": "langchain",
+                    "environment": settings.ENVIRONMENT,
+                },
+                tags=[
+                    "retrieval",
+                    "rag",
+                    "crm-copilot",
+                ],
+            ):
+                result = await self.retriever.retrieve(
+                    query=query,
+                    top_k=top_k,
+                    score_threshold=score_threshold,
+                    document_id=document_id,
+                )
+
+                # -------------------------------------------------
+                # Remove duplicate chunks while preserving scores
+                # -------------------------------------------------
+
+                seen = set()
+                unique_docs = []
+                unique_scores = []
+
+                for doc, score in zip(
+                    result.documents,
+                    result.similarity_scores,
+                ):
+
+                    key = (
+                        doc.metadata.get("document_id"),
+                        doc.metadata.get("chunk_index"),
+                    )
+
+                    if key in seen:
+                        continue
+
+                    seen.add(key)
+                    unique_docs.append(doc)
+                    unique_scores.append(score)
+
+                result.documents = unique_docs
+                result.similarity_scores = unique_scores
+
+                print("=" * 80)
+                print(f"Retrieved: {top_k}")
+                print(f"After dedup: {len(result.documents)}")
+
+                # Preserve vector similarity scores before reranking
+                score_map = {
+                    doc.metadata["chunk_id"]: score
+                    for doc, score in zip(
+                        result.documents,
+                        result.similarity_scores,
+                    )
+                }
+
+                reranked_docs = self.reranker.rerank(
+                    query=query,
+                    documents=result.documents,
+                )
+
+                print(f"After reranker: {len(reranked_docs)}")
+                print("=" * 80)
+
+                reranked_scores = [
+                    score_map.get(
+                        doc.metadata["chunk_id"],
+                        0.0,
+                    )
+                    for doc in reranked_docs
+                ]
+
+                result.documents = reranked_docs
+                result.similarity_scores = reranked_scores
 
             latency_ms = int(
                 (time.perf_counter() - started_at) * 1000
+            )
+
+            retrieval_metadata = dict(result.retrieval_metadata)
+
+            retrieval_metadata.update(
+                {
+                    "latency_ms": latency_ms,
+                    "retrieved_chunks": result.retrieved_chunks,
+                    "embedding_provider": settings.EMBEDDING_PROVIDER,
+                    "embedding_model": settings.EMBEDDING_MODEL,
+                    "vector_store": "pgvector",
+                    "chunk_ids": [
+                        str(doc.metadata["chunk_id"])
+                        for doc in result.documents
+                        if "chunk_id" in doc.metadata
+                    ],
+                }
             )
 
             await self.trace_repository.update_metrics(
                 trace.id,
                 retrieval_latency_ms=latency_ms,
                 total_latency_ms=latency_ms,
+                embedding_model=settings.EMBEDDING_MODEL,
+                vector_store="pgvector",
                 retrieved_chunk=result.retrieved_chunks,
                 retrieval_metadata=retrieval_metadata,
             )
@@ -114,21 +223,33 @@ class RetrievalService:
                 ),
                 start=1,
             ):
-                chunk_id = document.metadata.get("chunk_id")
+                metadata = document.metadata
 
-                if chunk_id is None:
+                chunk_id = metadata.get("chunk_id")
+                document_id = metadata.get("document_id")
+
+                if chunk_id is None or document_id is None:
                     continue
 
                 retrieved_chunks_payload.append(
                     {
-                        "retrieval_trace_id": trace.id,
-                        "document_chunk_id": UUID(str(chunk_id)),
+                        "trace_id": trace.id,
+                        "document_id": UUID(document.metadata["document_id"]),
+                        "chunk_id": UUID(document.metadata["chunk_id"]),
                         "rank": rank,
                         "similarity_score": score,
+                        "chunk_preview": document.page_content[:500],
+                        "retrieval_metadata": {},
                     }
                 )
 
             if retrieved_chunks_payload:
+
+                print("=" * 80)
+                print("RetrievedChunk payload")
+                print(retrieved_chunks_payload)
+                print("=" * 80)
+
                 await self.chunk_repository.bulk_create(
                     retrieved_chunks_payload,
                 )
@@ -138,6 +259,13 @@ class RetrievalService:
         except Exception as exc:
             latency_ms = int(
                 (time.perf_counter() - started_at) * 1000
+            )
+
+            retrieval_metadata.update(
+                {
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                }
             )
 
             await self.trace_repository.update_metrics(
@@ -154,3 +282,8 @@ class RetrievalService:
             )
 
             raise
+
+
+    
+
+        

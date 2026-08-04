@@ -113,3 +113,9 @@ class StreamChunk:
             conversation_id=conversation_id,
             message_id=message_id,
         )
+
+@dataclass(slots=True)
+class CompletionResult:
+    content: str
+    usage: TokenUsage
+    finish_reason: str = "stop"

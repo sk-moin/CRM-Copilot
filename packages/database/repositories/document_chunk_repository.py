@@ -7,7 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy.orm import selectinload
 from packages.database.models.document_chunk import DocumentChunk
 from packages.database.repositories.base_repository import BaseRepository
 
@@ -156,6 +156,9 @@ class DocumentChunkRepository(BaseRepository):
 
         stmt = (
             select(self.model)
+            .options(
+                selectinload(self.model.document)
+            )
             .where(
                 self.model.tenant_id == self.tenant_id,
             )
@@ -200,6 +203,9 @@ class DocumentChunkRepository(BaseRepository):
                 self.model,
                 distance,
             )
+            .options(
+                selectinload(self.model.document)
+            )
             .where(
                 self.model.tenant_id == self.tenant_id,
             )
@@ -212,16 +218,66 @@ class DocumentChunkRepository(BaseRepository):
 
         stmt = stmt.order_by(distance).limit(limit)
 
-        result = await self.session.execute(stmt)
+        print("Tenant:", self.tenant_id)
+        print("Document filter:", document_id)
+        print(stmt)
 
+        result = await self.session.execute(stmt)
         rows = result.all()
+
+        print("SQL rows:", len(rows))
+
+        print("=" * 80)
+        print("RAW PGVECTOR RESULTS")
+        print("=" * 80)
+
+        for chunk, dist in rows:
+            print(
+                f"chunk={chunk.chunk_index} | "
+                f"distance={float(dist):.6f} | "
+                f"similarity={1 - float(dist):.6f}"
+            )
+
+        # ============================================================
+        # DEBUG: Rank every chunk of ONE Company_Profile document
+        # ============================================================
+        print("\n")
+        print("=" * 80)
+        print("SINGLE DOCUMENT RANKING")
+        print("=" * 80)
+
+        debug_doc = UUID("170afbfe-2ec9-49d6-b0aa-81cca7c29eef")
+
+        debug_stmt = (
+            select(
+                self.model.chunk_index,
+                self.model.embedding.cosine_distance(
+                    embedding
+                ).label("distance"),
+            )
+            .where(
+                self.model.document_id == debug_doc,
+            )
+            .order_by("distance")
+        )
+
+        debug_result = await self.session.execute(debug_stmt)
+
+        for chunk_index, dist in debug_result:
+            print(
+                f"chunk={chunk_index} | "
+                f"distance={float(dist):.6f} | "
+                f"similarity={1 - float(dist):.6f}"
+            )
+
+        print("=" * 80)
 
         return [
             (
                 chunk,
-                max(0.0, 1.0 - float(distance)),
+                max(0.0, 1 - float(dist)),
             )
-            for chunk, distance in rows
+            for chunk, dist in rows
         ]
 
     # ------------------------------------------------------------------ #

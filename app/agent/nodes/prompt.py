@@ -1,24 +1,17 @@
-"""
-app/agent/nodes/prompt.py
-
-Prompt construction node for the LangGraph AI Agent.
-
-Responsibilities
-----------------
-- Load and render the active system prompt
-- Build the final LLM prompt
-- Combine conversation history with retrieved context
-- Store the prompt in the graph state
-"""
-
 from __future__ import annotations
 
 from app.agent.builders.prompt_builder import PromptBuilder
-from app.agent.state import AgentState
-from app.services.llm.prompt_manager import PromptManager
 from app.agent.prompts.system_prompt import get_system_prompt
+from app.agent.state import AgentState
+from app.observability.tracing import traced
+from app.services.llm.prompt_manager import PromptManager
 
 
+@traced(
+    name="prompt-node",
+    run_type="chain",
+    tags=["agent", "prompt"],
+)
 async def prompt_node(
     state: AgentState,
     *,

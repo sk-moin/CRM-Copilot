@@ -5,7 +5,7 @@
 - 003 Audit & Activity ✅
 - 004 Streaming Chat  ✅
 - 005 RAG Foundation (LangChain) ✅
-- 006 Retrieval Observability ✅
+- 006 Retrieval Observability (LangSmith) ✅
 - 007 AI Agent Orchestration (LangGraph) ✅
 - 008 Prompt Management  ✅
 - 009 AI Guardrails & Safety

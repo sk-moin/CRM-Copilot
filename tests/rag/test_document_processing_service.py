@@ -72,7 +72,7 @@ def service(
 def processing_request() -> DocumentProcessingRequest:
     return DocumentProcessingRequest(
         tenant_id=uuid4(),
-        organization_id=uuid4(),
+        org_id=uuid4(),
         owner_id=uuid4(),
         title="CRM Handbook",
         filename="crm.pdf",
@@ -260,7 +260,7 @@ async def test_process_success(
     # Assert completion
     # ------------------------------------------------------------------ #
 
-    document_repository.mark_completed.assert_awaited_once_with(
+    document_repository.mark_ready.assert_awaited_once_with(
         persisted_document.id,
         chunk_count=len(created_chunks),
     )
@@ -280,7 +280,7 @@ async def test_process_success(
 
     assert (
         result.status
-        == DocumentProcessingStatus.COMPLETED
+        == DocumentProcessingStatus.READY
     )
 
 # --------------------------------------------------------------------------- #
@@ -394,7 +394,7 @@ async def test_process_fails_when_vector_store_raises(
 
     vector_store.index_chunks.assert_awaited_once()
 
-    document_repository.mark_completed.assert_not_called()
+    document_repository.mark_ready.assert_not_called()
 
     document_repository.mark_failed.assert_awaited_once()
 
@@ -439,7 +439,7 @@ async def test_process_fails_when_chunk_repository_raises(
 
     chunk_repository.bulk_create.assert_awaited_once()
 
-    document_repository.mark_completed.assert_not_called()
+    document_repository.mark_ready.assert_not_called()
 
     document_repository.mark_failed.assert_awaited_once()
 
@@ -478,7 +478,7 @@ async def test_process_handles_empty_document(
 
     vector_store.index_chunks.assert_awaited_once_with([])
 
-    document_repository.mark_completed.assert_awaited_once_with(
+    document_repository.mark_ready.assert_awaited_once_with(
         persisted_document.id,
         chunk_count=0,
     )
@@ -487,7 +487,7 @@ async def test_process_handles_empty_document(
 
     assert (
         result.status
-        == DocumentProcessingStatus.COMPLETED
+        == DocumentProcessingStatus.READY
     )
 
 
@@ -512,7 +512,7 @@ async def test_process_fails_when_document_creation_fails(
 
     document_repository.mark_processing.assert_not_called()
 
-    document_repository.mark_completed.assert_not_called()
+    document_repository.mark_ready.assert_not_called()
 
     document_repository.mark_failed.assert_not_called()
 
@@ -559,7 +559,7 @@ async def test_process_calls_services_in_expected_order(
 
     vector_store.index_chunks.assert_awaited_once()
 
-    document_repository.mark_completed.assert_awaited_once()
+    document_repository.mark_ready.assert_awaited_once()
 
     document_repository.mark_failed.assert_not_called()
     

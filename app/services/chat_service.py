@@ -30,7 +30,7 @@ from app.services.llm.models import (
     TokenUsage,
 )
 from app.services.llm.prompt_builder import PromptBuilder
-
+from langsmith import get_current_run_tree
 from packages.database.models.message import MessageRole
 from packages.database.repositories.conversation_repository import (
     ConversationRepository,
@@ -38,7 +38,7 @@ from packages.database.repositories.conversation_repository import (
 from packages.database.repositories.message_repository import (
     MessageRepository,
 )
-
+from app.observability.tracing import trace_context
 
 class ChatService:
     """
@@ -88,9 +88,12 @@ class ChatService:
         conversation_id: UUID,
         user_message: str,
     ) -> AsyncIterator[StreamChunk]:
+        
         """
         Stream a Retrieval-Augmented response for a conversation.
         """
+
+        print("CHAT SERVICE STARTED")
 
         # ------------------------------------------------------------------ #
         # Validate conversation ownership
@@ -162,18 +165,42 @@ class ChatService:
         # Stream RAG response
         # ------------------------------------------------------------------ #
 
-        agent_state = await self._agent_service.run(
-            conversation_id=conversation_id,
-            org_id=self._user.org_id,
-            tenant_id=self._tenant_id,
-            user_id=self._user.id,
-            query=user_message,
-        )
+        with trace_context(
+            metadata={
+                "tenant_id": str(self._tenant_id),
+                "org_id": str(self._user.org_id),
+                "conversation_id": str(conversation_id),
+                "user_id": str(self._user.id),
+            },
+        ):
+            agent_state = await self._agent_service.run(
+                conversation_id=conversation_id,
+                org_id=self._user.org_id,
+                tenant_id=self._tenant_id,
+                user_id=self._user.id,
+                query=user_message,
+            )
+
+            usage = agent_state["usage"]
+            finish_reason = agent_state.get("finish_reason", "stop")
+           
+    
+            run = get_current_run_tree()
+    
+            if run is not None:
+                run.metadata.update(
+                    {
+                        "model": usage.model,
+                        "prompt_tokens": usage.prompt_tokens,
+                        "completion_tokens": usage.completion_tokens,
+                        "total_tokens": usage.total_tokens,
+                        "finish_reason": finish_reason,
+                    }
+                )
 
         full_response = agent_state["response"] or ""
 
-        usage = agent_state["usage"]
-        finish_reason = agent_state.get("finish_reason", "stop")
+        
 
         yield StreamChunk(
             token=full_response,

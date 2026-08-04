@@ -174,7 +174,7 @@ async def knowledge_document(
 ):
     document = KnowledgeDocument(
         tenant_id=tenant.id,
-        organization_id=organization.id,
+        org_id=organization.id,
         owner_id=user.id,
 
         title="Sample Document",

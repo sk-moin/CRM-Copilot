@@ -81,7 +81,7 @@ class DocumentProcessingService:
 
         document = await self.document_repository.create(
             tenant_id=request.tenant_id,
-            org_id=request.organization_id,
+            org_id=request.org_id,
             owner_id=request.owner_id,
             title=request.title,
             filename=request.filename,
@@ -102,7 +102,7 @@ class DocumentProcessingService:
                 request.storage_path,
             )
 
-            split_chunks = self.splitter.split(
+            split_chunks = self.splitter.split_text(
                 parsed.content,
                 metadata={
                     "document_id": str(document.id),
@@ -112,16 +112,19 @@ class DocumentProcessingService:
                 },
             )
 
-            chunk_payload = []
+            chunk_payload: list[dict] = []
 
-            for chunk in split_chunks:
+            for index, chunk in enumerate(split_chunks):
+                start_char = chunk.metadata.get("start_index", 0)
+
                 chunk_payload.append(
                     {
                         "document_id": document.id,
-                        "content": chunk.content,
-                        "chunk_index": chunk.chunk_index,
-                        "start_char": chunk.start_char,
-                        "end_char": chunk.end_char,
+                        "content": chunk.page_content,
+                        "chunk_index": index,
+                        "start_char": start_char,
+                        "end_char": start_char + len(chunk.page_content),
+                        "token_count": len(chunk.page_content.split()),
                         "chunk_metadata": chunk.metadata,
                     }
                 )
@@ -134,15 +137,17 @@ class DocumentProcessingService:
                 created_chunks,
             )
 
-            await self.document_repository.mark_completed(
+            await self.document_repository.mark_ready(
                 document.id,
                 chunk_count=len(created_chunks),
             )
 
+            await self.document_repository.session.commit()
+
             return DocumentProcessingResult(
                 document_id=document.id,
                 chunk_count=len(created_chunks),
-                status=DocumentProcessingStatus.COMPLETED,
+                status=DocumentProcessingStatus.READY,
             )
 
         except Exception as exc:

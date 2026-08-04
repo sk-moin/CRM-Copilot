@@ -21,7 +21,7 @@ from app.api.schemas.rag import (
     RAGQueryRequest,
     RAGQueryResponse,
 )
-from app.rag.service import RAGService
+from app.rag.rag_service import RAGService
 from packages.database.models import User
 
 router = APIRouter(

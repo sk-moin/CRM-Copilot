@@ -72,7 +72,7 @@ async def upload_document(
     try:
         request = DocumentProcessingRequest(
             tenant_id=current_user.tenant_id,
-            organization_id=current_user.organization_id,
+            org_id=current_user.org_id,
             owner_id=current_user.id,
             title=title or Path(file.filename).stem,
             filename=file.filename,

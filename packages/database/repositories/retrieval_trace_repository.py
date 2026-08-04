@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.observability.tracing import traced
 from packages.database.models.retrieval_trace import RetrievalTrace
 from packages.database.repositories.base_repository import BaseRepository
 
@@ -20,6 +21,28 @@ class RetrievalTraceRepository(BaseRepository):
 
     def __init__(self, session: AsyncSession, tenant_id: UUID):
         super().__init__(session, tenant_id)
+
+    # ------------------------------------------------------------------ #
+    # Create
+    # ------------------------------------------------------------------ #
+
+    @traced(
+        name="db-create-retrieval-trace",
+        run_type="tool",
+        tags=["database", "retrieval-trace"],
+    )
+    async def create(
+        self,
+        **kwargs,
+    ) -> RetrievalTrace:
+        """
+        Create a retrieval trace.
+        """
+        return await super().create(**kwargs)
+
+    # ------------------------------------------------------------------ #
+    # Queries
+    # ------------------------------------------------------------------ #
 
     async def list_by_conversation(
         self,
@@ -65,7 +88,7 @@ class RetrievalTraceRepository(BaseRepository):
         self,
         trace_id: UUID,
     ) -> Optional[RetrievalTrace]:
-        """Load a retrieval trace together with all retrieved chunks."""
+        """Load a retrieval trace together with retrieved chunks."""
 
         stmt = (
             select(self.model)
@@ -77,6 +100,15 @@ class RetrievalTraceRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    # ------------------------------------------------------------------ #
+    # Updates
+    # ------------------------------------------------------------------ #
+
+    @traced(
+        name="db-update-retrieval-status",
+        run_type="tool",
+        tags=["database", "retrieval-trace"],
+    )
     async def update_status(
         self,
         trace_id: UUID,
@@ -84,7 +116,7 @@ class RetrievalTraceRepository(BaseRepository):
         status: str,
         error_message: str | None = None,
     ) -> Optional[RetrievalTrace]:
-        """Update retrieval status and optional error message."""
+        """Update retrieval status."""
 
         instance = await self.get_by_id(trace_id)
 
@@ -99,6 +131,11 @@ class RetrievalTraceRepository(BaseRepository):
 
         return instance
 
+    @traced(
+        name="db-update-retrieval-metrics",
+        run_type="tool",
+        tags=["database", "retrieval-trace"],
+    )
     async def update_metrics(
         self,
         trace_id: UUID,
@@ -134,7 +171,7 @@ class RetrievalTraceRepository(BaseRepository):
             instance.vector_store = vector_store
 
         if retrieved_chunk is not None:
-            instance.retrieved_chunk = retrieved_chunk
+            instance.retrieved_chunks = retrieved_chunk
 
         if retrieval_metadata is not None:
             instance.retrieval_metadata = retrieval_metadata

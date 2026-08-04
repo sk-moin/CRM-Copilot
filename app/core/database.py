@@ -52,10 +52,14 @@ AsyncSessionLocal = async_sessionmaker(
 # FastAPI dependency – yields a fresh session per request and guarantees it
 # is closed afterwards.
 # ---------------------------------------------------------------------------
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db():
     async with AsyncSessionLocal() as session:
         try:
             yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()
 

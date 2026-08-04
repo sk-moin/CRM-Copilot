@@ -26,7 +26,7 @@ from fastapi.security import (
 )
 
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from langsmith import Client
 from app.core.database import get_db
 from app.core.security import (
     JWTError,
@@ -89,6 +89,11 @@ async def get_current_user(
         HTTPBearer(auto_error=False),
     ),
 ) -> User:
+
+    print("AUTH START")
+
+    print(credentials)
+
     """
     Return the authenticated user.
     """
@@ -104,6 +109,8 @@ async def get_current_user(
             credentials.credentials,
         )
 
+        print("PAYLOAD:", payload)
+
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,6 +119,9 @@ async def get_current_user(
 
     user_id = payload.get("sub")
     tenant_id = payload.get("tenant_id")
+
+    print("USER ID:", user_id)
+    print("TENANT:", tenant_id)
 
     if user_id is None or tenant_id is None:
         raise HTTPException(
@@ -127,6 +137,8 @@ async def get_current_user(
     user = await repository.get_by_id(
         user_id,
     )
+
+    print("USER:", user)
 
     if user is None:
         raise HTTPException(
@@ -201,16 +213,21 @@ def get_llm_provider() -> LLMProvider:
     Return the configured LLM provider.
     """
 
-    from app.core.config import Settings
+    from app.core.config import get_settings
     from app.services.llm.providers.mock_provider import (
         MockProvider,
     )
-
-    settings = Settings()
-
-    return MockProvider(
-        settings,
+    from app.services.llm.providers.openrouter_provider import (
+        OpenRouterProvider,
     )
+
+    settings = get_settings()
+
+    if settings.LLM_PROVIDER == "mock":
+        return MockProvider(settings)
+
+    if settings.LLM_PROVIDER == "openrouter":
+        return OpenRouterProvider(settings)
 
 
 
@@ -397,11 +414,19 @@ def get_retriever(
     )
 
 
+def get_langsmith_client() -> Client:
+    """
+    Return the LangSmith client.
+    """
+    return Client()
+
+
 # --------------------------------------------------------------------------- #
 # Retrieval Service
 # --------------------------------------------------------------------------- #
 
 from app.rag.retrieval_service import RetrievalService
+
 
 
 def get_retrieval_service(
@@ -415,9 +440,6 @@ def get_retrieval_service(
         get_retrieved_chunk_repository,
     ),
 ) -> RetrievalService:
-    """
-    Create the RetrievalService.
-    """
     return RetrievalService(
         retriever=retriever,
         retrieval_trace_repository=retrieval_trace_repository,
@@ -770,4 +792,7 @@ __all__ = [
     # Repositories
     "get_prompt_repository",
     "get_prompt_version_repository",
+
+    # LangSmith Client
+    "get_langsmith_client",
 ]

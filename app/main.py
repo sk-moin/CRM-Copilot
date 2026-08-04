@@ -11,6 +11,15 @@ from app.api.routes.task import router as task_router
 from app.api.routes import audit
 from app.api.routes.chat import router as chat_router
 from app.api.routes.prompt import router as prompt_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.document import router as document_router
+from app.api.routes.rag import router as rag_router
+from app.api.routes.retrieval_observability import (
+    router as retrieval_observability_router,
+)
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(
     title="CRM Copilot API",
@@ -32,3 +41,7 @@ app.include_router(task_router, prefix="/api/v1/tasks", tags=["Tasks"])
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(prompt_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(document_router, prefix="/api/v1")
+app.include_router(rag_router, prefix="/api/v1")
+app.include_router(retrieval_observability_router, prefix="/api/v1")
