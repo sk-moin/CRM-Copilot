@@ -2,7 +2,18 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Column, DateTime, Enum, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 
@@ -15,11 +26,28 @@ class KnowledgeDocument(Base):
 
     __tablename__ = "knowledge_documents"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=func.gen_random_uuid(),
+    )
 
-    tenant_id = Column(PGUUID(as_uuid=True), nullable=False)
-    org_id = Column(PGUUID(as_uuid=True), nullable=False)
-    owner_id = Column(PGUUID(as_uuid=True), nullable=True)
+    tenant_id = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    org_id = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("organization.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    owner_id = Column(
+        PGUUID(as_uuid=True),
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     title = Column(String, nullable=False)
     filename = Column(String, nullable=False)
@@ -44,12 +72,16 @@ class KnowledgeDocument(Base):
 
     chunk_count = Column(Integer, nullable=False, default=0)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+    created_at = Column(
+        DateTime(timezone=True),
         nullable=False,
+        server_default=func.current_timestamp(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.current_timestamp(),
+        onupdate=func.current_timestamp(),
     )
 
     chunks = relationship(
@@ -63,4 +95,15 @@ class KnowledgeDocument(Base):
         "RetrievedChunk",
         back_populates="document",
         cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_knowledge_documents_tenant_id", "tenant_id"),
+        Index("ix_knowledge_documents_organization_id", "org_id"),
+        Index("ix_knowledge_documents_status", "processing_status"),
+        Index(
+            "ix_knowledge_documents_tenant_status",
+            "tenant_id",
+            "processing_status",
+        ),
     )

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.agent_actions.executors import executor_for
 from app.services.agent_actions.payloads import schema_for
+from app.services.audit_context import correlated_audit
 from app.services.audit_service import AuditService
 from packages.database.models.agent_action import AgentAction
 from packages.database.models.audit import AuditAction
@@ -180,11 +181,22 @@ class AgentActionService:
     async def list_actions(
         self,
         status: Optional[AgentActionStatus] = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[AgentAction]:
         if status is None:
-            return await self._repo.list_pending(org_id=self._user.org_id)
+            return await self._repo.list_pending(
+                org_id=self._user.org_id,
+                limit=limit,
+                offset=offset,
+            )
 
-        return await self._repo.list_by_status(status, org_id=self._user.org_id)
+        return await self._repo.list_by_status(
+            status,
+            org_id=self._user.org_id,
+            limit=limit,
+            offset=offset,
+        )
 
     async def get_action(self, action_id: UUID) -> AgentAction:
         action = await self._repo.get_for_org(action_id, self._user.org_id)
@@ -281,12 +293,16 @@ class AgentActionService:
             # block below would raise instead of running, the request would
             # 500, and the action would silently revert to PENDING and
             # reappear in the queue forever.
+            # The CRM service inside the handler writes its own audit row.
+            # Tagging it with this action's correlation id is what lets the
+            # audit log alone join "the agent proposed X" to "row Y changed".
             async with self._session.begin_nested():
-                entity_type, entity_id = await handler(
-                    self._session,
-                    self._user,
-                    model,
-                )
+                with correlated_audit(action.correlation_id):
+                    entity_type, entity_id = await handler(
+                        self._session,
+                        self._user,
+                        model,
+                    )
 
         except Exception as exc:
             # The CRM write and this status write share the caller's

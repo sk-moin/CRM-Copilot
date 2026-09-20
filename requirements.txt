@@ -68,11 +68,14 @@ python-docx==1.2.0
 #    no expiry check) and redis/ (in-memory fake). They are deleted; see
 #    tests/unit/core/test_security_real_crypto.py for the regression guards.
 #
-# 2. sentence-transformers drags in torch: roughly 2 GB installed, and the
-#    single largest cost in any CI run. tests/conftest.py pins
-#    LLM_PROVIDER=mock and the reranker only loads lazily on a real retrieval,
-#    so splitting it into an optional extra would take CI from minutes to
-#    seconds. Worth deciding before the workflow is written.
+# 2. torch is unavoidable, roughly 2 GB, and the largest cost in any CI run.
+#    It is not this project's doing: langchain_core.language_models.base
+#    imports transformers, and langchain_text_splitters imports
+#    sentence_transformers, both at module scope. Our own modules no longer
+#    force it -- the huggingface embedding provider and the cross-encoder
+#    reranker import lazily -- but that only helps a deployment that omits
+#    sentence-transformers entirely and runs with EMBEDDING_PROVIDER=mock or
+#    openai. With langchain installed, the pip cache is the mitigation.
 #
 # 3. Versions are what the dev machine has, not what has been proven from a
 #    clean checkout. Verify with:

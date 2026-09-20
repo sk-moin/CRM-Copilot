@@ -24,6 +24,8 @@ class AgentActionRepository(BaseRepository):
     async def list_pending(
         self,
         org_id: Optional[UUID] = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[AgentAction]:
         """Return undecided actions, oldest first.
 
@@ -39,7 +41,7 @@ class AgentActionRepository(BaseRepository):
         if org_id is not None:
             stmt = stmt.where(self.model.org_id == org_id)
 
-        stmt = stmt.order_by(self.model.created_at.asc())
+        stmt = stmt.order_by(self.model.created_at.asc()).limit(limit).offset(offset)
 
         result = await self.session.execute(stmt)
 
@@ -49,8 +51,15 @@ class AgentActionRepository(BaseRepository):
         self,
         status: AgentActionStatus,
         org_id: Optional[UUID] = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[AgentAction]:
-        """Return actions in one status, newest first."""
+        """Return actions in one status, oldest first.
+
+        Same ordering as `list_pending`: one endpoint returning newest-first or
+        oldest-first depending on whether `?status=` was supplied is a trap for
+        anyone paging through it.
+        """
 
         stmt = select(self.model).where(
             self.model.tenant_id == self.tenant_id,
@@ -60,7 +69,7 @@ class AgentActionRepository(BaseRepository):
         if org_id is not None:
             stmt = stmt.where(self.model.org_id == org_id)
 
-        stmt = stmt.order_by(self.model.created_at.desc())
+        stmt = stmt.order_by(self.model.created_at.asc()).limit(limit).offset(offset)
 
         result = await self.session.execute(stmt)
 

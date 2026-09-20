@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     JSON,
     String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
@@ -35,25 +36,25 @@ class RetrievedChunk(Base):
 
     tenant_id = Column(
         PGUUID(as_uuid=True),
-        ForeignKey("tenant.id"),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
         nullable=False,
     )
 
     trace_id = Column(
         PGUUID(as_uuid=True),
-        ForeignKey("retrieval_traces.id"),
+        ForeignKey("retrieval_traces.id", ondelete="CASCADE"),
         nullable=False,
     )
 
     document_id = Column(
         PGUUID(as_uuid=True),
-        ForeignKey("knowledge_documents.id"),
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
         nullable=False,
     )
 
     chunk_id = Column(
         PGUUID(as_uuid=True),
-        ForeignKey("document_chunks.id"),
+        ForeignKey("document_chunks.id", ondelete="CASCADE"),
         nullable=False,
     )
 
@@ -67,8 +68,11 @@ class RetrievedChunk(Base):
         nullable=False,
     )
 
+    # TEXT in the database. String(500) here would have autogenerate propose
+    # a narrowing type change on every run, and the preview is truncated in
+    # application code rather than by the column.
     chunk_preview = Column(
-        String(500),
+        Text,
         nullable=False,
     )
 

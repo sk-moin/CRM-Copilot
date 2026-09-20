@@ -55,19 +55,19 @@
 **Suggested fix:** Remove them.
 **Resolution:** Fixed 2026-09-20. Both imports deleted; the adapter's string branch is kept as defensive handling for third-party providers with its comment corrected.
 
-### F-46 [P3] open - The approval queue endpoint is unpaginated
+### F-46 [P3] fixed - The approval queue endpoint is unpaginated
 
 **File:** app/services/agent_action_service.py:174
 **Found:** 2026-09-20 by /audit independent current (scope: current; lens: performance)
 **Why it matters:** `GET /api/v1/actions` returns every matching row with its full payload and no limit or offset. Fine at current scale, but build-plan item 012 adds rate limiting, which implies proposals are expected in volume.
 **Suggested fix:** Add a `limit` before anything drives proposals at volume.
-**Resolution:** Not fixed. Deliberately left: no current requirement, and adding pagination now would be speculative. Recorded so it is not rediscovered as a surprise.
+**Resolution:** Fixed 2026-09-21. `limit` (1-200, default 50) and `offset` on the repository, service and route. Also unified the ordering: `list_pending` sorted oldest-first and `list_by_status` newest-first, so the same endpoint changed order depending on whether `?status=` was present, which would have made paging through it incoherent. Two tests cover non-overlapping pages and out-of-range limits.
 
-### F-48 [P3] open - The CRM entity's own audit row is not joined to the proposal
+### F-48 [P3] fixed - The CRM entity's own audit row is not joined to the proposal
 
 **File:** app/services/agent_actions/executors.py:34
 **Found:** 2026-09-20 by /audit independent current (scope: current; lens: quality)
 **Why it matters:** Each handler calls a CRM service that writes its own audit entry without the proposal's `correlation_id`, so the audit log alone cannot join "the agent proposed X" to "row Y changed" without going through `agent_action.result_entity_id`.
 **Suggested fix:** Thread the correlation id into the CRM services' audit calls.
-**Resolution:** Not fixed. It requires changing the audit signature of five CRM services that are outside this feature's scope, and the join is available through `result_entity_id` today. Recorded for a future audit-traceability item.
+**Resolution:** Fixed 2026-09-21 without touching the five CRM services. `app/services/audit_context.py` holds a context variable that `AuditService.log_event` consults when no explicit `correlation_id` is passed, and `_execute` sets it around the handler. The CRM services build their own `AuditService` internally, so an explicit parameter would have meant changing five constructors for one caller; a context variable reaches the same depth, is scoped to the block, and is reset on exception. An integration test asserts the `agent_action` and `task` audit rows share one correlation id.
 

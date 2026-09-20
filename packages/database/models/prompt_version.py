@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 
 from sqlalchemy import (
+    Index,
     Column,
     DateTime,
     Float,
@@ -38,6 +39,8 @@ class PromptVersion(Base):
             "version",
             name="uq_prompt_version",
         ),
+        Index("ix_prompt_version_version", "version"),
+        Index("ix_prompt_version_created_by", "created_by"),
     )
 
     id: PGUUID = Column(

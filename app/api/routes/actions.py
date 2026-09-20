@@ -41,11 +41,21 @@ async def list_actions(
         alias="status",
         description="Defaults to pending when omitted.",
     ),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     service: AgentActionService = Depends(get_agent_action_service),
 ) -> AgentActionListResponse:
-    """List proposed actions. Pending by default, since this is a queue."""
+    """List proposed actions. Pending by default, since this is a queue.
 
-    actions = await service.list_actions(status=action_status)
+    Paginated: the queue is agent-generated, so its size is not bounded by
+    anything a person does.
+    """
+
+    actions = await service.list_actions(
+        status=action_status,
+        limit=limit,
+        offset=offset,
+    )
 
     return AgentActionListResponse(
         items=[AgentActionResponse.model_validate(a) for a in actions],

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
-from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-from langchain_core.documents import Document
-
 from dataclasses import dataclass
+
 from langchain_core.documents import Document
 
 @dataclass(slots=True)
@@ -23,6 +20,17 @@ class LangChainReranker:
         model_name: str = "BAAI/bge-reranker-base",
         top_n: int = 5,
     ) -> None:
+
+        # Imported here, not at module scope. These pull in
+        # sentence-transformers and torch, roughly 2 GB, and importing this
+        # module used to drag all of it into every process that touched the
+        # RAG package -- including test runs that never rerank anything.
+        # Construction already loads the model, so this defers nothing that
+        # was not already deferred.
+        from langchain_classic.retrievers.document_compressors import (
+            CrossEncoderReranker,
+        )
+        from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
         model = HuggingFaceCrossEncoder(
             model_name=model_name,

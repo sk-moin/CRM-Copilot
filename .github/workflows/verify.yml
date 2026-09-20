@@ -63,9 +63,9 @@ jobs:
             requirements-dev.txt
 
       - name: Install dependencies
-        # sentence-transformers pulls in torch, roughly 2 GB. It is imported at
-        # application import time, so it cannot be skipped without a code
-        # change. The pip cache above keeps this to the first run.
+        # Roughly 2 GB, dominated by torch. langchain_core imports
+        # transformers at module scope, so torch comes along regardless of
+        # what this project does. The pip cache above keeps it to cold runs.
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt

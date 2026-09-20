@@ -6,6 +6,7 @@ import datetime
 from enum import Enum
 
 from sqlalchemy import (
+    Index,
     Column,
     DateTime,
     Enum as SQLEnum,
@@ -46,6 +47,7 @@ class Prompt(Base):
             "name",
             name="uq_prompt_org_name",
         ),
+        Index("ix_prompt_category", "category"),
     )
 
     id: PGUUID = Column(

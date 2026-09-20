@@ -42,13 +42,13 @@ class RetrievalTrace(Base):
 
     tenant_id = Column(
         PGUUID(as_uuid=True),
-        ForeignKey("tenant.id"),
+        ForeignKey("tenant.id", ondelete="CASCADE"),
         nullable=False,
     )
 
     conversation_id = Column(
         PGUUID(as_uuid=True),
-        ForeignKey("conversation.id"),
+        ForeignKey("conversation.id", ondelete="SET NULL"),
         nullable=True,
     )
 

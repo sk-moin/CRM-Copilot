@@ -364,3 +364,78 @@ async def test_propose_node_payload_the_real_schema_rejects_creates_nothing(
         select(func.count()).select_from(AgentAction)
     )
     assert after.scalar_one() == count_before
+
+
+# --------------------------------------------------------------------------- #
+# Pagination and audit correlation
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_the_queue_is_paginated(authed_client, service, seeded_user):
+    """The queue is agent-generated, so nothing a person does bounds its size."""
+
+    for n in range(5):
+        await service.propose(
+            action_type="CREATE_TASK",
+            payload={"title": f"task {n}", "assigned_to_user_id": str(seeded_user.id)},
+        )
+
+    page = await authed_client.get("api/v1/actions?limit=2")
+
+    assert page.status_code == 200, page.text
+    assert len(page.json()["items"]) == 2
+
+    second = await authed_client.get("api/v1/actions?limit=2&offset=2")
+    first_ids = {i["id"] for i in page.json()["items"]}
+    second_ids = {i["id"] for i in second.json()["items"]}
+
+    assert not (first_ids & second_ids), "pages must not overlap"
+
+
+@pytest.mark.asyncio
+async def test_an_out_of_range_limit_is_rejected(authed_client):
+    assert (await authed_client.get("api/v1/actions?limit=0")).status_code == 422
+    assert (await authed_client.get("api/v1/actions?limit=999")).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_the_crm_audit_row_joins_to_the_proposal(
+    authed_client,
+    _async_session,
+    seeded_user,
+    service,
+):
+    """The audit log alone must answer: the agent proposed X, what changed?
+
+    The CRM service writes its own audit row. Without the correlation id it
+    carried nothing linking it to the action, so the join could only be made
+    by going out to agent_action.result_entity_id and back.
+    """
+
+    from sqlalchemy import select
+
+    from packages.database.models import AuditLog
+
+    action = await service.propose(
+        action_type="CREATE_TASK",
+        payload={"title": "joined up", "assigned_to_user_id": str(seeded_user.id)},
+    )
+
+    response = await authed_client.post(f"api/v1/actions/{action.id}/approve")
+    assert response.status_code == 200, response.text
+
+    task_id = response.json()["result_entity_id"]
+
+    rows = await _async_session.execute(
+        select(AuditLog).where(AuditLog.correlation_id == action.correlation_id)
+    )
+    entries = list(rows.scalars().all())
+
+    entity_types = {e.entity_type for e in entries}
+
+    assert "agent_action" in entity_types, "the proposal and decision"
+    assert "task" in entity_types, "the CRM row the approval produced"
+
+    task_rows = [e for e in entries if e.entity_type == "task"]
+    assert str(task_rows[0].entity_id) == task_id

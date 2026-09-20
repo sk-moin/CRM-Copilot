@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Sequence
 
 from langchain_core.embeddings import Embeddings
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
 
 from app.core.config import get_settings
@@ -74,6 +73,13 @@ def create_embedding_provider() -> EmbeddingProvider:
     provider = settings.EMBEDDING_PROVIDER.lower()
 
     if provider == "huggingface":
+        # Imported here, not at module scope. langchain_huggingface pulls in
+        # sentence-transformers and torch, roughly 2 GB, and importing this
+        # module used to drag all of it into every process that touched the
+        # app -- including a test run pinned to the mock provider, and any CI
+        # job that only runs tests.
+        from langchain_huggingface import HuggingFaceEmbeddings
+
         return EmbeddingProvider(
             HuggingFaceEmbeddings(
                 model_name=settings.EMBEDDING_MODEL,

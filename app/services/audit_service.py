@@ -13,6 +13,7 @@ Responsibilities:
 from __future__ import annotations
 
 import uuid
+from app.services.audit_context import current_correlation_id
 from typing import Any, Optional
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,7 +115,9 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent,
             actor_type=actor_type,
-            correlation_id=correlation_id,
+            # Falls back to the ambient id so a CRM row changed by an
+            # approved agent action joins to that action in the audit log.
+            correlation_id=correlation_id or current_correlation_id(),
         )
 
     # ------------------------------------------------------------------ #

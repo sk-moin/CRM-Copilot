@@ -48,7 +48,7 @@ V2/V3.
 
 ## Features
 
-Build-plan order. V1 items 000-008 are shipped; 009 is the current edge.
+Build-plan order. V1 items 000-010 are shipped; 011 is the current edge.
 
 **V1**
 
@@ -61,8 +61,8 @@ Build-plan order. V1 items 000-008 are shipped; 009 is the current edge.
 7. **006. Retrieval Observability (LangSmith)** - Automatic tracing of retrieval latency, retrieved chunks, and failures with no change to business logic.
 8. **007. AI Agent Orchestration (LangGraph)** - Deterministic agent graph replacing the direct RAG chain; coordinates retrieval, prompting, generation, and streaming.
 9. **008. Prompt Management** - Centralized, versioned, tenant-aware prompt store replacing hardcoded prompts across the agent.
-10. **009. AI Guardrails & Safety (NeMo Guardrails)** - Input/output rails on the agent graph guarding against jailbreaks, PII leakage, off-topic responses, and hallucinated CRM facts.
-11. **010. AI Actions & Approval Layer** - Lets the agent propose CRM-mutating actions that route through human approval before executing, on top of the 003 audit trail.
+10. **009. AI Guardrails & Safety (NeMo Guardrails)** - Input and output rails governing the chat and RAG response paths against jailbreaks, prompt injection, off-topic responses, prompt and secret leakage, and unsafe content. PII redaction and groundedness were descoped to 028 and 031a.
+11. **010. AI Actions & Approval Layer** - The agent proposes CRM mutations as durable `AgentAction` records; a person approves, and only then does the mutation execute, exactly once. Every transition is audited. Proposals are parsed from a structured block in the model's answer; native tool calling is deferred to 023.
 12. **011. Background Jobs** - Async task queue for ingestion, embeddings, and eval runs off the request/response path.
 13. **012. Rate Limiting** - Redis-backed per-tenant/per-user throttling via `fastapi-limiter`.
 14. **013. Observability** - Structured logging, metrics, and tracing across API and agent layers, beyond 006's retrieval-only tracing.
@@ -176,6 +176,20 @@ timestamps.
 `chunk_id`, `rank`, `similarity_score`, `chunk_preview`, `retrieval_metadata`
 (JSON), timestamps.
 
+### Agent actions
+
+**AgentAction** - `tenant_id`, `org_id`, `conversation_id?` -> Conversation,
+`proposed_by_user_id` -> User, `action_type` (enum, five allowed CRM
+mutations), `payload` (JSONB, validated against a strict per-type schema),
+`reason?`, `status` (enum `PENDING|APPROVED|REJECTED|EXECUTED|FAILED`),
+`decided_by_user_id?` -> User, `decided_at?`, `decision_reason?`,
+`executed_at?`, `result_entity_type?`, `result_entity_id?`, `error_message?`,
+`correlation_id`, timestamps. Indexed on `(tenant_id, status)`.
+
+> Executes at most once: the PENDING check and the status write share a row
+> lock. Scoped by org as well as tenant, because the executor stamps the CRM
+> row with the approver's org.
+
 ### Compliance
 
 **AuditLog** - `tenant_id`, `org_id`, `user_id`, `entity_type`, `entity_id`,
@@ -199,9 +213,9 @@ timestamps.
 | Agent | LangGraph | Deterministic agent graph |
 | Tracing | LangSmith | Retrieval tracing (feature 006) |
 | Guardrails | NVIDIA NeMo Guardrails | Input/output rails (feature 009, in progress) |
-| LLM access | OpenRouter (OpenAI-compatible) | OpenAI/Anthropic swappable behind one provider interface |
+| LLM access | Groq (OpenAI-compatible), default `openai/gpt-oss-20b` | OpenRouter and a deterministic mock swappable behind one provider interface |
 | Embeddings | local `BAAI/bge-base-en-v1.5` via sentence-transformers | No embedding API cost |
-| Auth | JWT (15-min access) + rotating refresh tokens (30-day TTL) in Redis | RBAC via role claim |
+| Auth | PyJWT (15-min access) + rotating refresh tokens in Redis, bcrypt passwords | RBAC via role claim |
 | Rate limiting | `fastapi-limiter` (Redis-backed) | Feature 012 |
 | Frontend | Next.js 15 (App Router), TypeScript, TanStack Query | Not present in this repo — see Open questions |
 | Testing | pytest (backend), vitest (frontend) | Backend gate only until the frontend exists |
