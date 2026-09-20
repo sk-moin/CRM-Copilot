@@ -38,6 +38,11 @@ async def lifespan(app: FastAPI):
 
     await guardrails.shutdown()
 
+    # Release the Redis connection pool with the app, not at interpreter exit.
+    from app.core.redis_client import reset_redis
+
+    await reset_redis()
+
 app = FastAPI(
     title="CRM Copilot API",
     version="0.1.0",

@@ -217,3 +217,18 @@ async def conversation(
     await async_session.flush()
 
     return conversation
+
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_redis_between_tests():
+    """Drop the cached Redis client after each test.
+
+    `get_redis()` caches a client whose connection pool belongs to the event
+    loop that built it. pytest-asyncio gives each test its own loop, so without
+    this the second test inherits a pool tied to a closed loop.
+    """
+
+    yield
+
+    from app.core.redis_client import reset_redis
+
+    await reset_redis()

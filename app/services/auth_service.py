@@ -24,6 +24,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
+    needs_rehash,
     parse_refresh_token,
     verify_password,
     decode_jwt,
@@ -166,6 +167,13 @@ class AuthService:
 
         if not verify_password(password, user.password_hash):
             raise InvalidCredentialsError()
+
+        # Upgrade a legacy hash in place, now that the credentials are known
+        # good. Accounts created before real bcrypt was in use are migrated on
+        # their next sign-in rather than being locked out or reset.
+        if needs_rehash(user.password_hash):
+            user.password_hash = hash_password(password)
+            await self.session.flush()
 
         tenant_id = user.organization.tenant_id
 

@@ -8,7 +8,7 @@ import uuid
 import json
 import pytest
 import pytest_asyncio
-from custom_jwt import jwt
+import jwt
 from redis.asyncio import Redis
 
 from app.core import config
@@ -194,7 +194,7 @@ async def test_access_token_contains_iss_and_aud(async_session):
 @pytest.mark.asyncio
 async def test_token_validation_rejects_incorrect_issuer(async_session):
     """Token with wrong issuer must be rejected."""
-    from custom_jwt import JWTError
+    from app.core.security import JWTError
 
     service = get_auth_service(async_session)
     reg = await service.register(
@@ -226,7 +226,7 @@ async def test_token_validation_rejects_incorrect_issuer(async_session):
 @pytest.mark.asyncio
 async def test_token_validation_rejects_incorrect_audience(async_session):
     """Token with wrong audience must be rejected."""
-    from custom_jwt import JWTError
+    from app.core.security import JWTError
 
     service = get_auth_service(async_session)
     reg = await service.register(

@@ -29,6 +29,28 @@ def get_redis() -> Redis:
         _redis_instance = Redis.from_url(config.REDIS_URL, decode_responses=True)
     return _redis_instance
 
+async def reset_redis() -> None:
+    """Close the cached client and drop it.
+
+    The client owns a connection pool bound to the event loop that created it.
+    A process with a single loop never notices, but anything that creates a new
+    loop -- the test suite makes one per test -- would otherwise reuse a pool
+    tied to a closed loop and fail in teardown. Call this on shutdown, and
+    between tests.
+    """
+
+    global _redis_instance
+
+    if _redis_instance is not None:
+        try:
+            await _redis_instance.aclose()
+        except Exception:
+            # Teardown must not mask the real failure in the test or request.
+            pass
+
+        _redis_instance = None
+
+
 # ---------------------------------------------------------------------------
 # Helper for opaque‑token storage – store only a SHA‑256 hash of the token.
 # ---------------------------------------------------------------------------

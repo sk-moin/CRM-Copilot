@@ -1,0 +1,84 @@
+# CRM Copilot - runtime dependencies
+#
+# Not yet verified against a clean virtualenv -- see note 3.
+#
+# Derived from the third-party imports actually present in app/, packages/ and
+# alembic/, pinned to the versions currently installed on the dev machine. It
+# is not a `pip freeze`: that environment contains a great deal this project
+# does not use.
+
+# --- Web framework -----------------------------------------------------------
+fastapi==0.141.1
+uvicorn==0.30.6
+python-multipart==0.0.22        # FastAPI form and file uploads
+pydantic==2.13.5
+pydantic-settings==2.14.2
+python-dotenv==1.0.1
+Jinja2==3.1.6
+
+# --- Database ----------------------------------------------------------------
+SQLAlchemy==2.0.43
+asyncpg==0.31.0                 # async driver for the postgresql+asyncpg URL
+greenlet==3.2.4                 # required by SQLAlchemy's async bridge
+alembic==1.17.2
+pgvector==0.4.2
+
+# --- Cache / tokens ----------------------------------------------------------
+redis==8.1.0
+
+# --- Auth --------------------------------------------------------------------
+# bcrypt is used directly rather than through passlib: passlib 1.7.4 is
+# unmaintained and reads bcrypt.__about__, which bcrypt removed in 4.1, so the
+# pairing is a known breakage. One fewer dependency and no wrapper.
+bcrypt==5.0.0
+
+# PyJWT rather than python-jose: python-jose is effectively unmaintained, and
+# PyJWT validates exp, signature, audience, issuer and algorithm out of the box.
+PyJWT==2.12.1
+
+# --- AI / RAG ----------------------------------------------------------------
+openai==2.54.0                  # SDK used against OpenRouter
+langchain-core==1.2.24
+langchain-classic==1.0.3
+langchain-community==0.4.1
+langchain-openai==1.1.12
+langchain-huggingface==1.2.1
+langchain-text-splitters==1.1.1
+langgraph==1.0.7
+langsmith==0.6.8
+nemoguardrails==0.23.0
+
+# Local embeddings and the cross-encoder reranker. This pulls in torch and
+# transformers: roughly 2 GB installed, and the single largest cost in any CI
+# run. See the CI note below.
+sentence-transformers==5.3.0
+
+# --- Document ingestion ------------------------------------------------------
+pypdf==6.14.2
+python-docx==1.2.0
+
+
+# =============================================================================
+# Notes
+# =============================================================================
+#
+# 1. This file replaced three tracked stub packages that used to sit in the
+#    repository root and satisfy these imports with toy implementations:
+#    passlib/ (unsalted SHA-256 passwords), custom_jwt/ (sha256(payload+key),
+#    no expiry check) and redis/ (in-memory fake). They are deleted; see
+#    tests/unit/core/test_security_real_crypto.py for the regression guards.
+#
+# 2. sentence-transformers drags in torch: roughly 2 GB installed, and the
+#    single largest cost in any CI run. tests/conftest.py pins
+#    LLM_PROVIDER=mock and the reranker only loads lazily on a real retrieval,
+#    so splitting it into an optional extra would take CI from minutes to
+#    seconds. Worth deciding before the workflow is written.
+#
+# 3. Versions are what the dev machine has, not what has been proven from a
+#    clean checkout. Verify with:
+#      python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+#    and run the suite before trusting these pins.
+#
+# 4. No Python version is declared anywhere in the repository. This environment
+#    is 3.13.5; the project plan says 3.12. Pick one and add a .python-version,
+#    because CI has to choose.

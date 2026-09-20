@@ -3,8 +3,8 @@
 
 This module centralises all cryptographic operations required by Spec 001:
 
-* Password hashing/verification using **passlib[bcrypt]**.
-* JWT creation and validation using **python‑jose[cryptography]**.
+* Password hashing/verification using **bcrypt** directly.
+* JWT creation and validation using **PyJWT**.
 * Refresh‑token generation, parsing and rotation.  The refresh token has the
   format ``<jti>.<random_secret>`` and is stored in Redis under the key
   ``refresh:{jti}`` (the Redis client lives in ``app.core.redis_client``).
@@ -20,34 +20,89 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Tuple
 
-from custom_jwt import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
+import jwt
+from jwt import PyJWTError as JWTError
 
 from app.core import config
 
 # ---------------------------------------------------------------------------
 # Password hashing – passlib provides a high‑level wrapper around bcrypt.
 # ---------------------------------------------------------------------------
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Legacy hashes written by the stub that previously stood in for passlib:
+# "bcrypt$" followed by an unsalted SHA-256 hex digest. They are recognised
+# here only so existing accounts can still sign in and be upgraded in place on
+# their next successful login. Remove this once no such hashes remain.
+_LEGACY_STUB_PREFIX = "bcrypt$"
 
 
 def hash_password(password: str) -> str:
-    """Return a bcrypt hash for ``password``.
+    """Return a salted bcrypt hash for ``password``."""
 
-    The function is a thin wrapper around ``passlib`` so that the rest of the
-    code base does not need to import ``CryptContext`` directly.
+    return bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt(),
+    ).decode("utf-8")
+
+
+def _is_legacy_stub_hash(hashed_password: str) -> bool:
+    """True for the unsalted SHA-256 hashes the old stub produced.
+
+    A real bcrypt hash starts with ``$2a$``/``$2b$``/``$2y$``, so the two
+    formats cannot be confused despite the stub's misleading prefix.
     """
 
-    return pwd_context.hash(password)
+    if not hashed_password.startswith(_LEGACY_STUB_PREFIX):
+        return False
+
+    digest = hashed_password[len(_LEGACY_STUB_PREFIX):]
+
+    return len(digest) == 64 and all(
+        c in "0123456789abcdef" for c in digest.lower()
+    )
+
+
+def _verify_legacy_stub(plain_password: str, hashed_password: str) -> bool:
+    import hashlib
+
+    expected = hashlib.sha256(plain_password.encode()).hexdigest()
+
+    return secrets.compare_digest(
+        hashed_password,
+        f"{_LEGACY_STUB_PREFIX}{expected}",
+    )
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify that ``plain_password`` matches ``hashed_password``.
+    """Verify ``plain_password`` against a stored hash.
 
-    ``passlib`` returns ``True`` if the password is correct, ``False`` otherwise.
+    Accepts a legacy stub hash so an existing account is not locked out by the
+    move to real bcrypt. Call :func:`needs_rehash` after a successful check and
+    re-store the password when it returns True.
     """
 
-    return pwd_context.verify(plain_password, hashed_password)
+    if not hashed_password:
+        return False
+
+    if _is_legacy_stub_hash(hashed_password):
+        return _verify_legacy_stub(plain_password, hashed_password)
+
+    try:
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
+    except (ValueError, TypeError):
+        # Malformed or unrecognised hash: refuse rather than raise, so a bad
+        # row cannot turn a failed login into a 500.
+        return False
+
+
+def needs_rehash(hashed_password: str) -> bool:
+    """True when a stored hash should be replaced on the next successful login."""
+
+    return _is_legacy_stub_hash(hashed_password)
+
 
 # ---------------------------------------------------------------------------
 # JWT helpers – all JWT operations use the secret from ``config.JWT_SECRET``
@@ -116,7 +171,13 @@ def decode_jwt(token: str) -> dict:
         algorithms=[config.TOKEN_ALGORITHM],
         audience=config.JWT_AUDIENCE,
         issuer=config.JWT_ISSUER,
-        options={"verify_aud": True, "verify_iss": True},
+        options={
+            "verify_signature": True,
+            "verify_exp": True,
+            "verify_aud": True,
+            "verify_iss": True,
+            "require": ["exp", "iat", "sub", "iss", "aud"],
+        },
     )
 
 # ---------------------------------------------------------------------------
@@ -153,8 +214,10 @@ def parse_refresh_token(token: str) -> Tuple[str, str]:
 
 
 __all__ = [
+    "JWTError",
     "hash_password",
     "verify_password",
+    "needs_rehash",
     "create_access_token",
     "decode_jwt",
     "create_refresh_token",
