@@ -28,6 +28,8 @@ class _Settings:
         self.LLM_PROVIDER = provider
         self.OPENROUTER_API_KEY = "test-key"
         self.OPENROUTER_MODEL = "test-model"
+        self.GROQ_API_KEY = "gsk_test_not_a_real_key"
+        self.GROQ_MODEL = "openai/gpt-oss-20b"
         self.APP_URL = "http://localhost:8000"
 
 
@@ -58,11 +60,16 @@ def test_openrouter_provider_is_built() -> None:
         assert isinstance(factory.get_llm_provider(), OpenRouterProvider)
 
 
-@pytest.mark.parametrize("provider", ["groq", "", "anthropic", "openai"])
+@pytest.mark.parametrize("provider", ["", "anthropic", "openai", "cohere"])
 def test_unsupported_provider_raises_instead_of_returning_none(
     provider: str,
 ) -> None:
-    """The exact shape of the original defect, including the real `.env` value."""
+    """The shape of the original defect: a name nothing implements.
+
+    This used to parametrize over "groq", which was the real `.env` value at
+    the time and implemented nothing. Groq is a supported provider now, so the
+    case moved to other unimplemented names.
+    """
 
     with _with(provider):
         with pytest.raises(ValueError) as excinfo:
@@ -77,7 +84,7 @@ def test_unsupported_provider_raises_instead_of_returning_none(
 def test_the_factory_never_returns_none() -> None:
     """A regression guard phrased the way the bug actually presented."""
 
-    for provider in ("mock", "openrouter"):
+    for provider in ("mock", "openrouter", "groq"):
         factory.get_llm_provider.cache_clear()
 
         with _with(provider):
@@ -85,7 +92,7 @@ def test_the_factory_never_returns_none() -> None:
 
     factory.get_llm_provider.cache_clear()
 
-    with _with("groq"):
+    with _with("anthropic"):
         with pytest.raises(ValueError):
             assert factory.get_llm_provider() is not None
 

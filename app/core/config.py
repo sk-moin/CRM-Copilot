@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str | None = Field(default=None, env="OPENROUTER_API_KEY")
     OPENROUTER_MODEL: str = Field(default="openai/gpt-oss-20b:free", env="OPENROUTER_MODEL")
 
+    GROQ_API_KEY: str | None = Field(default=None, env="GROQ_API_KEY")
+    GROQ_MODEL: str = Field(default="openai/gpt-oss-20b", env="GROQ_MODEL")
+
     LLM_PROVIDER: str = Field(default="openrouter", env="LLM_PROVIDER")
 
     HF_TOKEN: str | None = Field(default=None,env="HF_TOKEN")
@@ -106,6 +109,8 @@ OPENAI_MAX_RETRIES: Final[int] = _settings.OPENAI_MAX_RETRIES
 
 OPENROUTER_API_KEY: str | None = _settings.OPENROUTER_API_KEY
 OPENROUTER_MODEL: str = _settings.OPENROUTER_MODEL
+GROQ_API_KEY: str | None = _settings.GROQ_API_KEY
+GROQ_MODEL: str = _settings.GROQ_MODEL
 
 LANGSMITH_API_KEY: str = _settings.LANGSMITH_API_KEY
 LANGSMITH_PROJECT: str = _settings.LANGSMITH_PROJECT
@@ -170,6 +175,8 @@ __all__ = [
     "OPENAI_MAX_RETRIES",
     "OPENROUTER_API_KEY",
     "OPENROUTER_MODEL",
+    "GROQ_API_KEY",
+    "GROQ_MODEL",
     "LANGSMITH_API_KEY",
     "LANGSMITH_PROJECT",
     "LANGSMITH_TRACING",

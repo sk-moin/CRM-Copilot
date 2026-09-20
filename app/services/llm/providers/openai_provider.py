@@ -48,6 +48,10 @@ class OpenAIProvider(LLMProvider):
 
         self._default_model = settings.OPENAI_DEFAULT_MODEL
 
+    @property
+    def default_model(self) -> str:
+        return self.settings.OPENAI_MODEL
+
     async def stream(
         self,
         messages: list[dict[str, Any]],

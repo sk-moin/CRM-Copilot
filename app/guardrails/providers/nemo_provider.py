@@ -197,25 +197,16 @@ class NemoGuardrailProvider(GuardrailProvider):
         }
 
     def _get_model_name(self) -> str:
+        """Return the model the application's LLM provider uses.
+
+        This used to re-derive the model from LLM_PROVIDER with an if-chain
+        that fell through to "mock-model" for anything it had not been taught
+        about. Adding a provider therefore sent a nonexistent model name to a
+        live API, the judge call 404'd, and every response failed closed to the
+        refusal message. Ask the provider instead.
         """
-        Determine the model used by the application's LLM provider.
-        """
 
-        settings = self._llm_provider.settings
-
-        provider = getattr(
-            settings,
-            "LLM_PROVIDER",
-            "openrouter",
-        )
-
-        if provider == "openrouter":
-            return settings.OPENROUTER_MODEL
-
-        if provider == "openai":
-            return settings.OPENAI_MODEL
-
-        return "mock-model"
+        return self._llm_provider.default_model
 
     @staticmethod
     def _extract_content(response: Any) -> str:

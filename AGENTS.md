@@ -291,19 +291,61 @@ checks do not make the Blueprint unusable.
 
 ## Commands
 
-<!-- blueprint:onboarding-required -->
-For a standard Next.js project. Change or remove if you're using something else.
+FastAPI backend, Python 3.13, PostgreSQL with pgvector, Redis, Groq for
+LLM calls.
 
-- Dev server: `npm run dev` (http://localhost:3000)
-- Build: `npm run build`
-- Production server: `npm run start`
-- Lint: `npm run lint`
+**Verify:** `alembic upgrade head && python -m pytest`
 
-Testing is opt-in. If this project does not already have a unit test runner, run
-`/tests` or `$tests` to add one and update this section with the real test
-commands.
+That is the one command local work and GitHub both run. The migration step is
+part of it because the test suite connects to a real database and does not
+create its schema itself; without it the run fails on missing tables rather
+than on anything real.
 
-Browser testing is also opt-in. Run `/tests browser` or `$tests browser` to add
-or normalize a browser harness and document its exact command as `Browser
-tests`. Check and Continuous Mode can then reuse it without installing tooling
-mid-feature.
+- Dev server: `uvicorn app.main:app --reload` (http://localhost:8000)
+- Health check: `GET /health`
+- Tests: `python -m pytest`
+- Migrations: `alembic upgrade head`, `alembic downgrade -1`
+- New migration: `alembic revision -m "<message>"` — write it by hand. See the
+  autogenerate warning below.
+
+### Local services
+
+Both are required by the suite, not optional:
+
+```
+docker compose up -d postgres redis
+```
+
+- PostgreSQL on host port **5433** (`tests/conftest.py` hardcodes it)
+- Redis on host port **6380** in compose; `REDIS_URL` defaults to `6379`, so set
+  `REDIS_URL=redis://localhost:6380` unless another Redis already serves 6379
+
+### Dependencies
+
+```
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+`requirements.txt` was derived from the imports actually present in `app/`,
+`packages/` and `alembic/`, not from `pip freeze`. It has not yet been proven
+from a clean virtualenv.
+
+### Not part of Verify
+
+- **Typecheck.** mypy is installed but the project has no mypy configuration and
+  has never been type-checked, so adding it now would be a gate nobody has
+  passed. Configure it, fix the backlog, then add it here.
+- **Build.** There is no build step for this application.
+- **Lint, coverage, browser tests, security scans.** None are configured.
+
+### Migration warning
+
+`alembic revision --autogenerate` currently produces around 420 lines of
+unrelated destructive drift, including dropping the `document_chunks` ivfflat
+vector index and several foreign keys on `knowledge_documents` and `prompt`.
+The models and the live schema have diverged. Write migrations by hand until
+that is resolved.
+
+Browser testing is opt-in and not configured. Run `/tests browser` or
+`$tests browser` to add a harness and document its exact command as `Browser
+tests`.

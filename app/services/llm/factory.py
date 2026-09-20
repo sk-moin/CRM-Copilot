@@ -14,10 +14,11 @@ from functools import lru_cache
 
 from app.core.config import get_settings
 from app.services.llm.base import LLMProvider
+from app.services.llm.providers.groq_provider import GroqProvider
 from app.services.llm.providers.mock_provider import MockProvider
 from app.services.llm.providers.openrouter_provider import OpenRouterProvider
 
-SUPPORTED_PROVIDERS = ("mock", "openrouter")
+SUPPORTED_PROVIDERS = ("groq", "mock", "openrouter")
 
 
 @lru_cache(maxsize=1)
@@ -43,6 +44,9 @@ def get_llm_provider() -> LLMProvider:
     # Normalised for the same reason GUARDRAILS_PROVIDER is: a stray capital or
     # trailing space should not brick startup.
     provider = (settings.LLM_PROVIDER or "").strip().lower()
+
+    if provider == "groq":
+        return GroqProvider(settings)
 
     if provider == "mock":
         return MockProvider(settings)

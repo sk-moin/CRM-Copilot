@@ -40,6 +40,10 @@ class MockProvider(LLMProvider):
     def __init__(self, settings: Settings):
         super().__init__(settings)
 
+    @property
+    def default_model(self) -> str:
+        return "mock-model"
+
     async def stream(
         self,
         messages: list[dict[str, Any]],

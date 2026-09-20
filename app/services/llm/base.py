@@ -35,6 +35,19 @@ class LLMProvider(ABC):
         """Return the provider configuration."""
         return self._settings
 
+    @property
+    def default_model(self) -> str:
+        """The model this provider uses when a caller does not name one.
+
+        Exists so other layers can ask the provider instead of keeping their
+        own provider-name-to-model mapping. A duplicated mapping silently
+        returns the wrong model for any provider it has not been taught about,
+        which is how the guardrail judge came to be called with "mock-model"
+        against a live API.
+        """
+
+        raise NotImplementedError
+
     @abstractmethod
     async def stream(
         self,

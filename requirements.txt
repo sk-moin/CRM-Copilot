@@ -37,7 +37,7 @@ bcrypt==5.0.0
 PyJWT==2.12.1
 
 # --- AI / RAG ----------------------------------------------------------------
-openai==2.54.0                  # SDK used against OpenRouter
+openai==2.54.0                  # SDK, used against Groq and OpenRouter
 langchain-core==1.2.24
 langchain-classic==1.0.3
 langchain-community==0.4.1
