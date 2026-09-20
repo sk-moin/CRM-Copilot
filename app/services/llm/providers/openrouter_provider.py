@@ -21,6 +21,31 @@ from app.services.llm.models import (
 )
 
 
+def _sampling(
+    temperature: float | None,
+    max_tokens: int | None,
+    stop: list[str] | None,
+) -> dict[str, Any]:
+    """Build sampling kwargs, omitting anything the caller left unset.
+
+    Passing an explicit None to the OpenAI SDK is not the same as omitting
+    the key, so unset values must not be forwarded at all.
+    """
+
+    options: dict[str, Any] = {}
+
+    if temperature is not None:
+        options["temperature"] = temperature
+
+    if max_tokens is not None:
+        options["max_tokens"] = max_tokens
+
+    if stop:
+        options["stop"] = stop
+
+    return options
+
+
 class OpenRouterProvider(LLMProvider):
     """OpenRouter implementation of LLMProvider."""
 
@@ -45,23 +70,18 @@ class OpenRouterProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
     ) -> CompletionResult:
-
-        print("=" * 80)
-        print("MESSAGES SENT TO OPENROUTER")
-        print(json.dumps(messages, indent=2))
-        print("=" * 80)
 
         response = await self._client.chat.completions.create(
             model=model or self.settings.OPENROUTER_MODEL,
             messages=messages,
+            **_sampling(temperature, max_tokens, stop),
         )
 
-        print("=" * 80)
-        print("OPENROUTER RAW RESPONSE")
-        print("=" * 80)
-        print(response)
-        print("=" * 80)
 
         if getattr(response, "error", None):
             raise RuntimeError(
@@ -77,8 +97,6 @@ class OpenRouterProvider(LLMProvider):
             )
 
         message = response.choices[0].message.content
-
-        print(message)
 
         if message is None:
             raise RuntimeError(
@@ -114,6 +132,10 @@ class OpenRouterProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """
         Generate a streaming completion.
@@ -124,6 +146,7 @@ class OpenRouterProvider(LLMProvider):
             messages=messages,
             stream=True,
             stream_options={"include_usage": True},
+            **_sampling(temperature, max_tokens, stop),
         )
 
         finish_reason = "stop"
@@ -158,7 +181,6 @@ class OpenRouterProvider(LLMProvider):
                     model=model_name,
                 )
 
-            print(chunk)
 
         yield StreamChunk.final_chunk(
             finish_reason=finish_reason,

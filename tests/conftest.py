@@ -1,8 +1,6 @@
 # tests/conftest.py
 
-from sqlalchemy import select
 import sys
-from unittest import result
 import uuid
 from pathlib import Path
 from typing import AsyncGenerator
@@ -15,6 +13,26 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
+
+# Force the deterministic in-process LLM before any project module reads
+# settings. Integration tests should not depend on a live third-party API:
+# it costs money, needs network, and makes a red suite ambiguous between
+# "our code broke" and "the provider is having a bad day".
+import os  # noqa: E402
+
+os.environ["LLM_PROVIDER"] = "mock"
+
+# Settings are a module-level singleton built at import time, so the line above
+# only wins if nothing imported app.core.config before this conftest. A plugin
+# loaded with -p, pytest-env, or a repo-root conftest would load first and
+# silently re-point the suite at the live paid provider. Fail loudly instead.
+from app.core.config import get_settings  # noqa: E402
+
+assert get_settings().LLM_PROVIDER == "mock", (
+    "tests/conftest.py ran after app.core.config was already imported, so the "
+    "LLM_PROVIDER pin did not take effect and the suite would hit the live "
+    "provider. Move the pin into pytest.ini if a plugin now loads first."
+)
 
 from packages.database.models import (
     Tenant,

@@ -17,14 +17,31 @@ from app.api.routes.rag import router as rag_router
 from app.api.routes.retrieval_observability import (
     router as retrieval_observability_router,
 )
+from app.api.routes.guardrails import (
+    router as guardrails_router,
+)
+from contextlib import asynccontextmanager
+
+from app.guardrails.dependencies import get_guardrail_service
 from dotenv import load_dotenv
 
 load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    guardrails = get_guardrail_service()
+
+    await guardrails.initialize()
+
+    yield
+
+    await guardrails.shutdown()
 
 app = FastAPI(
     title="CRM Copilot API",
     version="0.1.0",
     description="Multi-tenant CRM with AI‑powered copilot capabilities.",
+    lifespan=lifespan,
 )
 
 # Health‑check endpoint
@@ -45,3 +62,4 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(document_router, prefix="/api/v1")
 app.include_router(rag_router, prefix="/api/v1")
 app.include_router(retrieval_observability_router, prefix="/api/v1")
+app.include_router(guardrails_router, prefix="/api/v1")

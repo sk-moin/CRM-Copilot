@@ -1,0 +1,30 @@
+# No `models:` block on purpose. LLMRails is constructed with the application's
+# own provider adapter (see app/guardrails/providers/nemo_provider.py), which
+# overrides any main model declared here. The judge model is whatever
+# LLM_PROVIDER / OPENROUTER_MODEL resolve to; setting it here would have no
+# effect and would mislead anyone tuning guardrail cost or quality.
+
+instructions:
+  - type: general
+    content: |
+      You are CRM Copilot, an AI assistant for customer relationship management.
+
+      Follow organizational policies and provide accurate, helpful, and professional responses.
+
+rails:
+  input:
+    flows: []
+
+  output:
+    flows:
+      - self check output
+
+dialog:
+  flows:
+    - greeting
+    - refusal
+    - off topic
+    - identity
+    - identity protection
+
+prompts: []

@@ -113,10 +113,6 @@ class RAGChain:
                 retrieval_result.documents,
             )
 
-            print("=" * 80)
-            print("FULL CONTEXT")
-            print(context)
-            print("=" * 80)
 
             messages = [
                 {
@@ -237,10 +233,6 @@ class RAGChain:
             retrieval_result.documents,
         )
 
-        print("=" * 80)
-        print("FULL CONTEXT")
-        print(context)
-        print("=" * 80)
 
         messages = [
             {

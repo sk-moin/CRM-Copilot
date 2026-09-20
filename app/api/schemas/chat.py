@@ -28,6 +28,7 @@ class ChatRequest(BaseModel):
     message: str = Field(
         ...,
         min_length=1,
+        max_length=10000,
         description="User message to send to the assistant.",
     )
 
@@ -171,8 +172,8 @@ class ChatStreamUsage(BaseModel):
 class ChatStreamDone(BaseModel):
     """Final stream completion event."""
 
-    conversation_id: UUID
-    message_id: UUID
+    conversation_id: UUID | None = None
+    message_id: UUID | None = None
 
     finish_reason: str = "stop"
 

@@ -47,44 +47,44 @@ class Settings(BaseSettings):
 
     LLM_PROVIDER: str = Field(default="openrouter", env="LLM_PROVIDER")
 
+    HF_TOKEN: str | None = Field(default=None,env="HF_TOKEN")
+        
+    APP_URL: str = Field(default="http://localhost:8000",env="APP_URL")
 
-    LANGSMITH_API_KEY: str | None = Field(
-        default=None,
-        env="LANGSMITH_API_KEY",
-    )
 
-    LANGSMITH_PROJECT: str = Field(
-        default="crm-copilot",
-        env="LANGSMITH_PROJECT",
-    )
-
-    LANGSMITH_TRACING: bool = Field(
-        default=False,
-        env="LANGSMITH_TRACING",
-    )
+    LANGSMITH_API_KEY: str | None = Field(default=None, env="LANGSMITH_API_KEY")
+    LANGSMITH_PROJECT: str = Field(default="crm-copilot", env="LANGSMITH_PROJECT")
+    LANGSMITH_TRACING: bool = Field(default=False, env="LANGSMITH_TRACING")
 
     ENVIRONMENT: str = "development"
 
-    EMBEDDING_PROVIDER: str = Field(
-    default="huggingface",
-    env="EMBEDDING_PROVIDER",
-    )
+    EMBEDDING_PROVIDER: str = Field(default="huggingface", env="EMBEDDING_PROVIDER")
+    EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2", env="EMBEDDING_MODEL")
 
-    EMBEDDING_MODEL: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        env="EMBEDDING_MODEL",
-    )
+    GUARDRAILS_ENABLED: bool = True
+    GUARDRAILS_CONFIG_PATH: str = "app/guardrails/rails"
+    GUARDRAILS_PROVIDER: str = "nemo"
+    GUARDRAILS_VERBOSE: bool = False
 
-    HF_TOKEN: str | None = Field(
-        default=None,
-        env="HF_TOKEN",
+
+    GUARDRAIL_INPUT_ENABLED: bool = True
+    GUARDRAIL_JAILBREAK_ENABLED: bool = True
+    GUARDRAIL_PROMPT_INJECTION_ENABLED: bool = True
+    GUARDRAIL_INPUT_FALLBACK_MESSAGE: str = ("I'm sorry, but I can't assist with that request.")
+
+    GUARDRAIL_OUTPUT_ENABLED: bool = True
+    GUARDRAIL_OUTPUT_BLOCK_ON_VIOLATION: bool = True
+    GUARDRAIL_OUTPUT_FAIL_CLOSED_ON_ERROR: bool = True
+    GUARDRAIL_OUTPUT_MAX_RESPONSE_LENGTH: int = 12000
+    GUARDRAIL_OUTPUT_FALLBACK_MESSAGE: str = (
+        "I'm sorry, but I can't provide that response. "
+        "Please try rephrasing your request."
     )
+    GUARDRAIL_OUTPUT_CHECK_PROMPT_LEAKAGE: bool = True
+    GUARDRAIL_OUTPUT_CHECK_UNSAFE_CONTENT: bool = True
+    GUARDRAIL_OUTPUT_CHECK_RESPONSE_QUALITY: bool = True
+
     
-
-    APP_URL: str = Field(
-        default="http://localhost:8000",
-        env="APP_URL",
-    )
 
 
 # Instantiate a single Settings object for module‑level constants.
@@ -114,13 +114,34 @@ LANGSMITH_TRACING: bool = _settings.LANGSMITH_TRACING
 EMBEDDING_PROVIDER: str = _settings.EMBEDDING_PROVIDER
 EMBEDDING_MODEL: str = _settings.EMBEDDING_MODEL
 
+GUARDRAILS_ENABLED: bool = _settings.GUARDRAILS_ENABLED
+GUARDRAILS_CONFIG_PATH: str = _settings.GUARDRAILS_CONFIG_PATH
+GUARDRAILS_PROVIDER: str = _settings.GUARDRAILS_PROVIDER
+GUARDRAILS_VERBOSE: bool = _settings.GUARDRAILS_VERBOSE
+
 HF_TOKEN: str | None = _settings.HF_TOKEN
 
 LLM_PROVIDER: str = _settings.LLM_PROVIDER
 
 APP_URL: str = _settings.APP_URL
 
-ENVIRONMENT: str = "development"
+ENVIRONMENT: str = _settings.ENVIRONMENT
+
+GUARDRAIL_INPUT_ENABLED: bool = _settings.GUARDRAIL_INPUT_ENABLED
+GUARDRAIL_JAILBREAK_ENABLED: bool = _settings.GUARDRAIL_JAILBREAK_ENABLED
+GUARDRAIL_PROMPT_INJECTION_ENABLED: bool = _settings.GUARDRAIL_PROMPT_INJECTION_ENABLED
+GUARDRAIL_INPUT_FALLBACK_MESSAGE: str = _settings.GUARDRAIL_INPUT_FALLBACK_MESSAGE
+
+GUARDRAIL_OUTPUT_ENABLED: bool = _settings.GUARDRAIL_OUTPUT_ENABLED
+GUARDRAIL_OUTPUT_BLOCK_ON_VIOLATION: bool = _settings.GUARDRAIL_OUTPUT_BLOCK_ON_VIOLATION
+GUARDRAIL_OUTPUT_FAIL_CLOSED_ON_ERROR: bool = _settings.GUARDRAIL_OUTPUT_FAIL_CLOSED_ON_ERROR
+GUARDRAIL_OUTPUT_MAX_RESPONSE_LENGTH: int = _settings.GUARDRAIL_OUTPUT_MAX_RESPONSE_LENGTH
+GUARDRAIL_OUTPUT_FALLBACK_MESSAGE: str = _settings.GUARDRAIL_OUTPUT_FALLBACK_MESSAGE
+GUARDRAIL_OUTPUT_CHECK_PROMPT_LEAKAGE: bool = _settings.GUARDRAIL_OUTPUT_CHECK_PROMPT_LEAKAGE
+GUARDRAIL_OUTPUT_CHECK_UNSAFE_CONTENT: bool = _settings.GUARDRAIL_OUTPUT_CHECK_UNSAFE_CONTENT
+GUARDRAIL_OUTPUT_CHECK_RESPONSE_QUALITY: bool = _settings.GUARDRAIL_OUTPUT_CHECK_RESPONSE_QUALITY
+
+
 
 
 
@@ -157,5 +178,21 @@ __all__ = [
     "LLM_PROVIDER",
     "EMBEDDING_PROVIDER",
     "EMBEDDING_MODEL",
+    "GUARDRAILS_ENABLED",
+    "GUARDRAILS_CONFIG_PATH",
+    "GUARDRAILS_PROVIDER",
+    "GUARDRAILS_VERBOSE",
     "HF_TOKEN",
+    "GUARDRAIL_INPUT_ENABLED",
+    "GUARDRAIL_JAILBREAK_ENABLED",
+    "GUARDRAIL_PROMPT_INJECTION_ENABLED",
+    "GUARDRAIL_INPUT_FALLBACK_MESSAGE",
+    "GUARDRAIL_OUTPUT_ENABLED",
+    "GUARDRAIL_OUTPUT_BLOCK_ON_VIOLATION",
+    "GUARDRAIL_OUTPUT_FAIL_CLOSED_ON_ERROR",
+    "GUARDRAIL_OUTPUT_MAX_RESPONSE_LENGTH",
+    "GUARDRAIL_OUTPUT_FALLBACK_MESSAGE",
+    "GUARDRAIL_OUTPUT_CHECK_PROMPT_LEAKAGE",
+    "GUARDRAIL_OUTPUT_CHECK_UNSAFE_CONTENT",
+    "GUARDRAIL_OUTPUT_CHECK_RESPONSE_QUALITY",
 ]

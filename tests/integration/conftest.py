@@ -106,6 +106,38 @@ async def async_session(_async_session):
 # --------------------------------------------------------------------------- #
 # Client
 # --------------------------------------------------------------------------- #
+# Guardrail provider lifecycle
+# --------------------------------------------------------------------------- #
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _initialised_guardrails():
+    """Initialise the guardrail provider for integration tests.
+
+    `httpx.ASGITransport` does not run the application lifespan, so
+    `app/main.py`'s startup hook never fires and the NeMo provider stays
+    uninitialised. `check_output` then raises, `validate_output` fails closed,
+    and every chat response the client sees is the guardrail refusal rather
+    than the model's answer.
+
+    That silently held for several rounds: the tests assert on frame shapes
+    (`"token"`, `"finish_reason"`, `"prompt_tokens"`), and a refusal frame
+    satisfies all of them. Without this fixture the success path has no
+    coverage at all — it could break completely and the suite would stay green.
+    """
+
+    from app.guardrails.dependencies import get_guardrail_service
+
+    service = get_guardrail_service()
+
+    await service.initialize()
+
+    yield
+
+    await service.shutdown()
+
+
+# --------------------------------------------------------------------------- #
 
 
 @pytest_asyncio.fixture(scope="function")

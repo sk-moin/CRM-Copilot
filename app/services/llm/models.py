@@ -107,6 +107,7 @@ class StreamChunk:
     ) -> "StreamChunk":
         """Create the final chunk for a stream."""
         return cls(
+            is_final=True,
             token=None,
             finish_reason=finish_reason,
             usage=usage,

@@ -98,16 +98,5 @@ class PromptBuilder:
 
         sections.append("## Assistant Response")
 
-        # Debug
-        print("=" * 80)
-        print("Prompt Sections")
-        print("=" * 80)
-
-        for i, section in enumerate(sections):
-            print(f"\nSECTION {i}")
-            print("-" * 40)
-            print(section[:500])
-
-        print("=" * 80)
 
         return "\n\n".join(sections)

@@ -15,8 +15,6 @@ async def tenant_scoped_query(
     **filters: Any,
 ) -> Any:
     """Return a select statement scoped to tenant_id."""
-    print(model.__name__)
-    print(model.__table__.c.keys())
 
     # Every tenant-scoped model must define tenant_id
     if "tenant_id" not in model.__table__.c:

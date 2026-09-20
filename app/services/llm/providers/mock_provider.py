@@ -22,7 +22,11 @@ from typing import Any
 
 from app.core.config import Settings
 from app.services.llm.base import LLMProvider
-from app.services.llm.models import StreamChunk, TokenUsage
+from app.services.llm.models import (
+    CompletionResult,
+    StreamChunk,
+    TokenUsage,
+)
 
 
 class MockProvider(LLMProvider):
@@ -40,6 +44,10 @@ class MockProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Stream a deterministic response.
 
@@ -91,9 +99,46 @@ class MockProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
-    ) -> str:
-        """Return a deterministic completion."""
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
+    ) -> CompletionResult:
+        """Return a deterministic completion.
+
+        Returns a CompletionResult, not a bare string: the abstract interface
+        promises one and callers such as RAGChain read `.content`.
+        """
 
         await asyncio.sleep(0.05)
 
-        return self.DEFAULT_RESPONSE
+        return CompletionResult(
+            content=self._response_for(messages),
+            usage=TokenUsage.empty(),
+            finish_reason="stop",
+        )
+
+    @classmethod
+    def _response_for(cls, messages: list[dict[str, Any]]) -> str:
+        """Answer the prompt that was actually asked.
+
+        A guardrail self-check asks a yes/no question and NeMo parses the
+        answer with `is_content_safe`, which treats anything it does not
+        recognise as a violation. A mock that replies with its stock prose
+        therefore blocks every response, and because the tests assert on
+        frame shapes rather than content, that failure is invisible: the
+        refusal frame satisfies them just as well as the real answer.
+
+        Answering the judge honestly keeps this a faithful double. It does not
+        weaken the rails under test: polarity is covered by
+        tests/guardrails/test_rails_polarity.py, which supplies its own judge.
+        """
+
+        prompt = " ".join(
+            str(message.get("content", "")) for message in messages
+        ).lower()
+
+        if "should the assistant response be blocked" in prompt:
+            return "no"
+
+        return cls.DEFAULT_RESPONSE

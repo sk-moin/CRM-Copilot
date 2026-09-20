@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+import logging
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from packages.database.models.document_chunk import DocumentChunk
 from packages.database.repositories.base_repository import BaseRepository
 
+logger = logging.getLogger(__name__)
 
 class DocumentChunkRepository(BaseRepository):
     """Repository for DocumentChunk entities."""
@@ -218,59 +220,14 @@ class DocumentChunkRepository(BaseRepository):
 
         stmt = stmt.order_by(distance).limit(limit)
 
-        print("Tenant:", self.tenant_id)
-        print("Document filter:", document_id)
-        print(stmt)
 
         result = await self.session.execute(stmt)
         rows = result.all()
 
-        print("SQL rows:", len(rows))
-
-        print("=" * 80)
-        print("RAW PGVECTOR RESULTS")
-        print("=" * 80)
-
-        for chunk, dist in rows:
-            print(
-                f"chunk={chunk.chunk_index} | "
-                f"distance={float(dist):.6f} | "
-                f"similarity={1 - float(dist):.6f}"
-            )
-
-        # ============================================================
-        # DEBUG: Rank every chunk of ONE Company_Profile document
-        # ============================================================
-        print("\n")
-        print("=" * 80)
-        print("SINGLE DOCUMENT RANKING")
-        print("=" * 80)
-
-        debug_doc = UUID("170afbfe-2ec9-49d6-b0aa-81cca7c29eef")
-
-        debug_stmt = (
-            select(
-                self.model.chunk_index,
-                self.model.embedding.cosine_distance(
-                    embedding
-                ).label("distance"),
-            )
-            .where(
-                self.model.document_id == debug_doc,
-            )
-            .order_by("distance")
+        logger.debug(
+            "Vector repository returned results",
+            extra={"row_count": len(rows)},
         )
-
-        debug_result = await self.session.execute(debug_stmt)
-
-        for chunk_index, dist in debug_result:
-            print(
-                f"chunk={chunk_index} | "
-                f"distance={float(dist):.6f} | "
-                f"similarity={1 - float(dist):.6f}"
-            )
-
-        print("=" * 80)
 
         return [
             (

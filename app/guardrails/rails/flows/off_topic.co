@@ -1,0 +1,20 @@
+define user ask off topic
+  "What's the weather today?"
+  "Who won the football match?"
+  "Tell me a joke"
+  "Recommend a movie"
+  "What's the latest news?"
+  "Help me with a Python programming problem"
+  "Write me a Python program"
+  "What's a good recipe for dinner?"
+  "Tell me about celebrities"
+  "What should I play on my weekend?"
+  "Explain quantum physics"
+  "Tell me about the history of Rome"
+
+define bot respond off topic
+  "I'm focused on CRM-related tasks such as customers, contacts, opportunities, tasks, notes, and account information. How can I help you with your CRM work?"
+
+define flow off topic
+  user ask off topic
+  bot respond off topic

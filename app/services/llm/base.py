@@ -40,6 +40,10 @@ class LLMProvider(ABC):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Generate a streaming response.
 
@@ -79,6 +83,10 @@ class LLMProvider(ABC):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
     ) -> CompletionResult:
         """Generate a non-streaming completion.
 
@@ -88,6 +96,14 @@ class LLMProvider(ABC):
 
             model:
                 Optional model override.
+
+            temperature, max_tokens, stop:
+                Optional sampling controls. When None the provider's own
+                default applies, so existing callers are unaffected. These
+                exist because callers that need a constrained, parseable
+                answer — the guardrail judge in particular — must be able to
+                pin temperature and stop tokens. An unpinned judge that
+                answers in prose is read as a policy violation.
 
         Returns:
             Complete assistant response.

@@ -24,6 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.rag.rag_service import RAGService
 from app.agent.service import AgentService
+from app.guardrails.exceptions import GuardrailInputBlockedError
+from app.guardrails.service import GuardrailService
 from app.services.audit_service import AuditService
 from app.services.llm.models import (
     StreamChunk,
@@ -59,12 +61,14 @@ class ChatService:
         session: AsyncSession,
         current_user: Any,
         agent_service: AgentService,
+        guardrail_service: GuardrailService,
     ) -> None:
         self._session = session
         self._user = current_user
         self._tenant_id = current_user.tenant_id
 
         self._agent_service = agent_service
+        self._guardrail_service = guardrail_service
 
         self._conversation_repo = ConversationRepository(
             session=session,
@@ -93,7 +97,7 @@ class ChatService:
         Stream a Retrieval-Augmented response for a conversation.
         """
 
-        print("CHAT SERVICE STARTED")
+
 
         # ------------------------------------------------------------------ #
         # Validate conversation ownership
@@ -112,6 +116,33 @@ class ChatService:
             raise PermissionError(
                 f"Access denied to conversation {conversation_id}."
             )
+
+        # ------------------------------------------------------------------ #
+        # Phase 6.1 — Input guardrails at the application boundary
+        # ------------------------------------------------------------------ #
+        # Validate before persisting the user message or invoking the agent.
+        #
+        # A blocked message is a refusal, not a transport failure. Emit the
+        # configured message as an ordinary assistant token and end the
+        # stream, so the client never sees the internal rule or exception
+        # name. Nothing is persisted: the guard runs before the user message
+        # is written.
+        try:
+            self._guardrail_service.validate_input(user_message)
+        except GuardrailInputBlockedError:
+            yield StreamChunk(
+                token=self._guardrail_service.input_fallback_message,
+            )
+
+            # F-07: the route keys its terminal frame off finish_reason, so a
+            # blocked exchange still closes cleanly even though nothing was
+            # persisted and there is no message id to report.
+            yield StreamChunk(
+                is_final=True,
+                finish_reason="content_filter",
+                conversation_id=conversation_id,
+            )
+            return
 
         # ------------------------------------------------------------------ #
         # Persist user message
@@ -198,9 +229,20 @@ class ChatService:
                     }
                 )
 
-        full_response = agent_state["response"] or ""
-
-        
+        # ------------------------------------------------------------------ #
+        # Output guardrails
+        # ------------------------------------------------------------------ #
+        # The same value feeds the stream and the persisted row below, so the
+        # stored assistant message can never differ from what the user was
+        # actually shown.
+        #
+        # validate_output absorbs provider errors only while
+        # GUARDRAIL_OUTPUT_FAIL_CLOSED_ON_ERROR is true. With it false it
+        # raises, and that reaches the client as a ChatStreamError.
+        full_response = await self._guardrail_service.validate_output(
+            agent_state["response"] or "",
+            user_input=user_message,
+        )
 
         yield StreamChunk(
             token=full_response,
@@ -267,6 +309,7 @@ class ChatService:
         # ------------------------------------------------------------------ #
 
         yield StreamChunk(
+            is_final=True,
             finish_reason=finish_reason,
             usage=usage,
             conversation_id=conversation_id,

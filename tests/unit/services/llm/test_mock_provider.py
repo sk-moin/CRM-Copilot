@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import get_settings
+from app.services.llm.models import CompletionResult
 from app.services.llm.providers.mock_provider import MockProvider
 from app.services.llm.models import StreamChunk
 
@@ -38,8 +39,10 @@ async def test_complete_returns_default_response(
 ):
     response = await provider.complete(sample_messages)
 
-    assert isinstance(response, str)
-    assert response == provider.DEFAULT_RESPONSE
+    # CompletionResult, not a bare string: the abstract interface promises one
+    # and callers such as RAGChain read `.content`.
+    assert isinstance(response, CompletionResult)
+    assert response.content == provider.DEFAULT_RESPONSE
 
 
 @pytest.mark.asyncio
@@ -52,7 +55,7 @@ async def test_complete_with_model_override(
         model="mock-model",
     )
 
-    assert response == provider.DEFAULT_RESPONSE
+    assert response.content == provider.DEFAULT_RESPONSE
 
 
 # ---------------------------------------------------------------------

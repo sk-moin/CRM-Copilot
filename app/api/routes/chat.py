@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+import logging
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
@@ -18,6 +20,8 @@ from app.api.schemas.chat import (
     ChatStreamUsage,
 )
 from app.agent.service import AgentService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Chat"])
 
@@ -57,11 +61,43 @@ async def chat_stream(
                         finish_reason=chunk.finish_reason or "stop",
                     )
                     yield f"data: {done.model_dump_json()}\n\n"
+                    continue
 
-        except Exception as exc:
+                # A guardrail refusal persists nothing, so there is no
+                # message id to report. Still terminate the stream, or a
+                # client waiting on a done event hangs until the
+                # connection drops.
+                if chunk.is_final:
+                    done = ChatStreamDone(
+                        conversation_id=chunk.conversation_id,
+                        finish_reason=chunk.finish_reason or "stop",
+                    )
+                    yield f"data: {done.model_dump_json()}\n\n"
+
+        # Known, expected outcomes carry a safe message of their own.
+        # Anything else is unexpected and must not have its internal detail
+        # streamed to the client: the same leak was removed from /rag/query,
+        # and this is its sibling on the primary user path.
+        except ValueError:
             error = ChatStreamError(
-                type=type(exc).__name__,
-                message=str(exc),
+                type="ConversationNotFound",
+                message="Conversation not found.",
+            )
+            yield f"data: {error.model_dump_json()}\n\n"
+
+        except PermissionError:
+            error = ChatStreamError(
+                type="AccessDenied",
+                message="Access denied to this conversation.",
+            )
+            yield f"data: {error.model_dump_json()}\n\n"
+
+        except Exception:
+            logger.exception("chat.stream.failed")
+
+            error = ChatStreamError(
+                type="StreamError",
+                message="Failed to generate a response.",
             )
             yield f"data: {error.model_dump_json()}\n\n"
 

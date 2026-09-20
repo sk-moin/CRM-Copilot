@@ -3,7 +3,9 @@ from __future__ import annotations
 from app.agent.state import AgentState
 from app.observability.tracing import traced
 from app.rag.chains.rag_chain import RAGChain
+import logging
 
+logger = logging.getLogger(__name__)
 
 @traced(
     name="generate-node",
@@ -18,14 +20,16 @@ async def generate_node(
     """
     Execute the RAGChain and store the generated response.
     """
-    print("=" * 80)
-    print("GENERATE NODE")
-    print("Documents passed to RAG:", len(state["retrieved_documents"]))
+    logger.debug(
+        "Generate node started",
+        extra={
+            "retrieved_document_count": len(state["retrieved_documents"]),
+        },
+    )
 
     for i, doc in enumerate(state["retrieved_documents"]):
-        print(f"{i}: {doc.metadata.get('filename')}")
+        logger.debug("agent.generate.document", extra={"metadata": doc.metadata})
 
-    print("=" * 80)
     
     result = await rag_chain.run(
         query=state["query"],

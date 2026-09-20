@@ -6,9 +6,9 @@ import uuid
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from packages.database.models import AuditLog
 from packages.database.repositories import BaseRepository
+
 
 
 class AuditRepository(BaseRepository):
@@ -162,9 +162,6 @@ class AuditRepository(BaseRepository):
                 AuditLog.entity_id == entity_id,
             )
         )
-
-        rows = await self.session.execute(select(AuditLog))
-        print("VISIBLE ROWS:", rows.scalars().all())
 
         result = await self.session.execute(stmt)
         return result.scalar_one()

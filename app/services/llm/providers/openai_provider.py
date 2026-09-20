@@ -27,7 +27,11 @@ from openai import AsyncOpenAI
 
 from app.core.config import Settings
 from app.services.llm.base import LLMProvider
-from app.services.llm.models import StreamChunk, TokenUsage
+from app.services.llm.models import (
+    CompletionResult,
+    StreamChunk,
+    TokenUsage,
+)
 
 
 class OpenAIProvider(LLMProvider):
@@ -48,6 +52,10 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
     ) -> AsyncIterator[StreamChunk]:
         """Stream a chat completion from OpenAI.
 
@@ -103,7 +111,11 @@ class OpenAIProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         model: str | None = None,
-    ) -> str:
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stop: list[str] | None = None,
+    ) -> CompletionResult:
         """Generate a non-streaming completion.
 
         Args:
@@ -127,8 +139,16 @@ class OpenAIProvider(LLMProvider):
         )
 
         if not response.choices:
-            return ""
+            return CompletionResult(
+                content="",
+                usage=TokenUsage.empty(),
+                finish_reason="stop",
+            )
 
         message = response.choices[0].message
 
-        return message.content or ""
+        return CompletionResult(
+            content=message.content or "",
+            usage=TokenUsage.empty(),
+            finish_reason="stop",
+        )

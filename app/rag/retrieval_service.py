@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import time
 from uuid import UUID
+import logging
+from functools import lru_cache
 
 from app.rag.retrievers.retriever import (
     RetrievalResult,
@@ -41,7 +43,20 @@ from packages.database.repositories.retrieved_chunk_repository import (
 from app.observability.tracing import traced, trace_context
 from app.core.config import get_settings
 
-reranker = LangChainReranker(top_n=5)
+logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=1)
+def get_default_reranker() -> LangChainReranker:
+    """Return the process-wide reranker.
+
+    Constructing a LangChainReranker loads a cross-encoder model into memory.
+    RetrievalService is built per request by an uncached FastAPI dependency, so
+    without this cache every concurrent chat request loads its own copy of the
+    model. The load stays lazy: nothing happens until the first rerank.
+    """
+
+    return LangChainReranker(top_n=5)
 
 class RetrievalService:
     """
@@ -54,11 +69,19 @@ class RetrievalService:
         retriever: Retriever,
         retrieval_trace_repository: RetrievalTraceRepository,
         retrieved_chunk_repository: RetrievedChunkRepository,
+        reranker: LangChainReranker | None = None,
     ) -> None:
         self.retriever = retriever
         self.trace_repository = retrieval_trace_repository
         self.chunk_repository = retrieved_chunk_repository
-        self.reranker = reranker
+        self._reranker = reranker
+
+
+    @property
+    def reranker(self) -> LangChainReranker:
+        if self._reranker is None:
+            self._reranker = get_default_reranker()
+        return self._reranker
 
     @traced(
         name="semantic-retrieval",
@@ -146,9 +169,13 @@ class RetrievalService:
                 result.documents = unique_docs
                 result.similarity_scores = unique_scores
 
-                print("=" * 80)
-                print(f"Retrieved: {top_k}")
-                print(f"After dedup: {len(result.documents)}")
+                logger.debug(
+                    "Retrieval completed",
+                    extra={
+                        "requested_top_k": top_k,
+                        "after_dedup": len(result.documents),
+                    },
+                )
 
                 # Preserve vector similarity scores before reranking
                 score_map = {
@@ -164,8 +191,6 @@ class RetrievalService:
                     documents=result.documents,
                 )
 
-                print(f"After reranker: {len(reranked_docs)}")
-                print("=" * 80)
 
                 reranked_scores = [
                     score_map.get(
@@ -245,10 +270,13 @@ class RetrievalService:
 
             if retrieved_chunks_payload:
 
-                print("=" * 80)
-                print("RetrievedChunk payload")
-                print(retrieved_chunks_payload)
-                print("=" * 80)
+                logger.debug(
+                    "Persisting retrieved chunks",
+                    extra={
+                        "trace_id": str(trace.id),
+                        "chunk_count": len(retrieved_chunks_payload),
+                    },
+                )
 
                 await self.chunk_repository.bulk_create(
                     retrieved_chunks_payload,

@@ -1,0 +1,14 @@
+define user express greeting
+  "hi"
+  "hello"
+  "hey"
+  "good morning"
+  "good afternoon"
+  "good evening"
+
+define bot express greeting
+  "Hello! How can I help you today?"
+
+define flow greeting
+  user express greeting
+  bot express greeting

@@ -16,6 +16,9 @@ from __future__ import annotations
 from typing import Iterable
 from uuid import UUID
 
+import logging
+
+
 from langchain_core.documents import Document
 
 from app.rag.embeddings.embedding_provider import EmbeddingProvider
@@ -27,6 +30,7 @@ from packages.database.repositories.document_chunk_repository import (
 from app.observability.tracing import traced, trace_context
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
 
 class PGVectorStore:
     """High-level vector store built on DocumentChunkRepository."""
@@ -166,10 +170,10 @@ class PGVectorStore:
                     query
                 )
 
-                print("=" * 80)
-                print("QUERY:", query)
-                print("Embedding dimension:", len(embedding))
-                print("=" * 80)
+                logger.debug(
+                    "Generated query embedding",
+                    extra={"embedding_dimension": len(embedding)},
+                )
 
             with trace_context(
                 metadata={
@@ -194,14 +198,11 @@ class PGVectorStore:
                     if score >= self.similarity_threshold
                 ]
 
-                print("Repository returned", len(results), "rows")
+                logger.debug(
+                    "Vector repository returned results",
+                    extra={"row_count": len(results)},
+                )
 
-                for chunk, score in results:
-                    print(
-                        "score=", score,
-                        "chunk=", chunk.chunk_index,
-                        "doc=", chunk.document_id,
-                    )
 
                 documents = [
                     (

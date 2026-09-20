@@ -16,8 +16,6 @@ from app.api.schemas.audit import (
 )
 from app.services.audit_service import AuditService
 from packages.database.models import User
-from sqlalchemy import select
-from packages.database.models import AuditLog
 router = APIRouter(prefix="/audit", tags=["Audit"])
 
 
@@ -33,9 +31,6 @@ async def get_entity_timeline(
     audit_service: AuditService = Depends(get_audit_service),
 ):
     
-    rows = await audit_service._session.execute(select(AuditLog))
-    print("API sees:", len(rows.scalars().all()))
-
     events = await audit_service.get_timeline(
         entity_type=entity_type,
         entity_id=entity_id,

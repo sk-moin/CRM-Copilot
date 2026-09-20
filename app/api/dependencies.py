@@ -90,9 +90,6 @@ async def get_current_user(
     ),
 ) -> User:
 
-    print("AUTH START")
-
-    print(credentials)
 
     """
     Return the authenticated user.
@@ -109,7 +106,6 @@ async def get_current_user(
             credentials.credentials,
         )
 
-        print("PAYLOAD:", payload)
 
     except JWTError as exc:
         raise HTTPException(
@@ -120,8 +116,6 @@ async def get_current_user(
     user_id = payload.get("sub")
     tenant_id = payload.get("tenant_id")
 
-    print("USER ID:", user_id)
-    print("TENANT:", tenant_id)
 
     if user_id is None or tenant_id is None:
         raise HTTPException(
@@ -138,7 +132,6 @@ async def get_current_user(
         user_id,
     )
 
-    print("USER:", user)
 
     if user is None:
         raise HTTPException(
@@ -208,26 +201,10 @@ def get_audit_service(
 # Chat
 # --------------------------------------------------------------------------- #
 
-def get_llm_provider() -> LLMProvider:
-    """
-    Return the configured LLM provider.
-    """
-
-    from app.core.config import get_settings
-    from app.services.llm.providers.mock_provider import (
-        MockProvider,
-    )
-    from app.services.llm.providers.openrouter_provider import (
-        OpenRouterProvider,
-    )
-
-    settings = get_settings()
-
-    if settings.LLM_PROVIDER == "mock":
-        return MockProvider(settings)
-
-    if settings.LLM_PROVIDER == "openrouter":
-        return OpenRouterProvider(settings)
+# Re-exported from app.services.llm.factory so existing imports keep working.
+# The construction logic lives there because app.guardrails.dependencies needs
+# it too, and importing it from this module created an import cycle.
+from app.services.llm.factory import get_llm_provider  # noqa: E402
 
 
 
@@ -629,15 +606,21 @@ def get_agent_service(
     )
 
 
+from app.guardrails.dependencies import get_guardrail_service
+from app.guardrails.service import GuardrailService
+
+
 def get_chat_service(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     agent_service: AgentService = Depends(get_agent_service),
+    guardrail_service: GuardrailService = Depends(get_guardrail_service),
 ) -> ChatService:
     return ChatService(
         session=db,
         current_user=current_user,
         agent_service=agent_service,
+        guardrail_service=guardrail_service,
     )
 
 # ---------------------------------------------------------------------
