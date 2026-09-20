@@ -26,6 +26,7 @@ from app.services.llm.prompt_manager import PromptManager
 from app.agent.nodes.finish import finish_node
 from app.agent.nodes.generate import generate_node
 from app.agent.nodes.prompt import prompt_node
+from app.agent.nodes.propose import propose_node
 from app.agent.nodes.retrieve import retrieve_node
 from app.agent.state import AgentState
 from app.rag.chains.rag_chain import RAGChain
@@ -44,11 +45,16 @@ class GraphBuilder:
         prompt_builder: PromptBuilder,
         prompt_manager: PromptManager,
         rag_chain: RAGChain,
+        action_service_factory=None,
     ) -> None:
         self.retrieval_service = retrieval_service
         self.prompt_builder = prompt_builder
         self.prompt_manager = prompt_manager
         self.rag_chain = rag_chain
+
+        # Optional: when absent the propose node is inert, so the graph stays
+        # usable anywhere there is no request-scoped session.
+        self.action_service_factory = action_service_factory
 
     def build(self):
         """
@@ -101,6 +107,14 @@ class GraphBuilder:
         )
 
         graph.add_node(
+            "propose",
+            partial(
+                propose_node,
+                action_service_factory=self.action_service_factory,
+            ),
+        )
+
+        graph.add_node(
             "finish",
             finish_node,
         )
@@ -112,7 +126,8 @@ class GraphBuilder:
         graph.add_edge(START, "retrieve")
         graph.add_edge("retrieve", "prompt")
         graph.add_edge("prompt", "generate")
-        graph.add_edge("generate", "finish")
+        graph.add_edge("generate", "propose")
+        graph.add_edge("propose", "finish")
         graph.add_edge("finish", END)
 
         return graph.compile()

@@ -54,3 +54,20 @@
 **Why it matters:** An unused `from sqlalchemy import select` and a `from unittest import result` autocomplete artefact, plus a comment in the guardrail adapter stating that `MockProvider.complete` returns a string, which the same round had changed. Same class as F-12 and F-26.
 **Suggested fix:** Remove them.
 **Resolution:** Fixed 2026-09-20. Both imports deleted; the adapter's string branch is kept as defensive handling for third-party providers with its comment corrected.
+
+### F-46 [P3] open - The approval queue endpoint is unpaginated
+
+**File:** app/services/agent_action_service.py:174
+**Found:** 2026-09-20 by /audit independent current (scope: current; lens: performance)
+**Why it matters:** `GET /api/v1/actions` returns every matching row with its full payload and no limit or offset. Fine at current scale, but build-plan item 012 adds rate limiting, which implies proposals are expected in volume.
+**Suggested fix:** Add a `limit` before anything drives proposals at volume.
+**Resolution:** Not fixed. Deliberately left: no current requirement, and adding pagination now would be speculative. Recorded so it is not rediscovered as a surprise.
+
+### F-48 [P3] open - The CRM entity's own audit row is not joined to the proposal
+
+**File:** app/services/agent_actions/executors.py:34
+**Found:** 2026-09-20 by /audit independent current (scope: current; lens: quality)
+**Why it matters:** Each handler calls a CRM service that writes its own audit entry without the proposal's `correlation_id`, so the audit log alone cannot join "the agent proposed X" to "row Y changed" without going through `agent_action.result_entity_id`.
+**Suggested fix:** Thread the correlation id into the CRM services' audit calls.
+**Resolution:** Not fixed. It requires changing the audit signature of five CRM services that are outside this feature's scope, and the join is available through `result_entity_id` today. Recorded for a future audit-traceability item.
+

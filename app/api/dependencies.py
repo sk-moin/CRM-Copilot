@@ -581,7 +581,27 @@ def get_prompt_manager(
 # --------------------------------------------------------------------------- #
 
 
+def get_agent_action_service_factory(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a zero-arg builder for the action service.
+
+    The propose node runs inside the agent graph, which has no access to
+    request scope. Handing it a callable keeps the session and user here,
+    where FastAPI already resolves them.
+    """
+
+    from app.services.agent_action_service import AgentActionService
+
+    def _build() -> "AgentActionService":
+        return AgentActionService(session=db, current_user=current_user)
+
+    return _build
+
+
 def get_agent_service(
+    action_service_factory=Depends(get_agent_action_service_factory),
     retrieval_service: RetrievalService = Depends(
         get_retrieval_service,
     ),
@@ -603,11 +623,25 @@ def get_agent_service(
         rag_chain=rag_chain,
         prompt_builder=prompt_builder,
         prompt_manager=prompt_manager,
+        # A zero-arg callable so the propose node need not know about request
+        # scope. None here would simply make that node inert.
+        action_service_factory=action_service_factory,
     )
 
 
 from app.guardrails.dependencies import get_guardrail_service
 from app.guardrails.service import GuardrailService
+
+
+def get_agent_action_service(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> "AgentActionService":
+    """Approval layer for agent-proposed CRM mutations."""
+
+    from app.services.agent_action_service import AgentActionService
+
+    return AgentActionService(session=db, current_user=current_user)
 
 
 def get_chat_service(
@@ -764,6 +798,7 @@ __all__ = [
 
     # AI Agent
     "get_agent_service",
+    "get_agent_action_service",
 
     # Prompt Components
     "get_prompt_renderer",

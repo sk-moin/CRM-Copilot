@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from app.agent.builders.prompt_builder import PromptBuilder
-from app.agent.prompts.system_prompt import get_system_prompt
+from app.agent.prompts.system_prompt import (
+    ACTION_PROPOSAL_INSTRUCTION,
+    get_system_prompt,
+)
 from app.agent.state import AgentState
 from app.observability.tracing import traced
 from app.services.llm.prompt_manager import PromptManager
@@ -34,6 +37,13 @@ async def prompt_node(
 
     if system_prompt is None:
         system_prompt = get_system_prompt()
+
+    # A tenant with its own stored prompt would otherwise never be told how to
+    # propose a CRM change, leaving the approval layer silently inert for that
+    # org. The instruction has one source; append it wherever it is missing.
+    if "```action" not in system_prompt:
+        system_prompt = "\n\n".join([system_prompt, ACTION_PROPOSAL_INSTRUCTION])
+
 
     state["prompt"] = prompt_builder.build(
         system_prompt=system_prompt,

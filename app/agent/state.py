@@ -40,3 +40,7 @@ class AgentState(TypedDict):
     errors: list[dict[str, Any]]
 
     finish_reason: str
+
+    # Set by the propose node when the answer carried a CRM action proposal.
+    # None on an ordinary turn.
+    proposed_action_id: Any | None

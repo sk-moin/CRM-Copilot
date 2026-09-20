@@ -17,6 +17,7 @@ from app.api.routes.rag import router as rag_router
 from app.api.routes.retrieval_observability import (
     router as retrieval_observability_router,
 )
+from app.api.routes.actions import router as actions_router
 from app.api.routes.guardrails import (
     router as guardrails_router,
 )
@@ -63,3 +64,4 @@ app.include_router(document_router, prefix="/api/v1")
 app.include_router(rag_router, prefix="/api/v1")
 app.include_router(retrieval_observability_router, prefix="/api/v1")
 app.include_router(guardrails_router, prefix="/api/v1")
+app.include_router(actions_router, prefix="/api/v1")
