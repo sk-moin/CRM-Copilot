@@ -30,14 +30,11 @@ from __future__ import annotations
 
 import logging
 
-from datetime import datetime
 
 from app.rag.exceptions import (
     ChunkingError,
     DocumentParsingError,
     DocumentNotFoundError,
-    DocumentProcessingError,
-    EmptyDocumentError,
     UnsupportedDocumentTypeError,
 )
 from app.rag.loaders.parser import DocumentParser
@@ -69,12 +66,11 @@ from packages.database.repositories.knowledge_document_repository import (
 _USER_FACING_ERRORS = (
     UnsupportedDocumentTypeError,
     DocumentParsingError,
-    EmptyDocumentError,
     ChunkingError,
 )
 
 
-def _user_facing_error(exc: Exception) -> str:
+def _user_facing_error(exc: Exception, filename: str | None = None) -> str:
     """The failure reason to store on the document.
 
     Muting every message is its own bug -- the project has done it before and
@@ -84,7 +80,19 @@ def _user_facing_error(exc: Exception) -> str:
     """
 
     if isinstance(exc, _USER_FACING_ERRORS):
-        return str(exc)[:2000]
+        reason = str(exc)
+
+        # Named for the caller. The parser can only see the stored path,
+        # which the upload route wrote as a generated hex id, so the name
+        # the user sent lives on the document row and is added here.
+        if filename:
+            # The name is bounded at the upload boundary, but this message
+            # is also written by paths that did not come through it, so the
+            # reason is protected here too: truncating the name cannot
+            # evict the part that says what went wrong.
+            return f"{filename[:120]}: {reason}"[:2000]
+
+        return reason[:2000]
 
     return (
         "Processing failed because of an internal error. "
@@ -162,12 +170,27 @@ class DocumentProcessingService:
 
         await self.document_repository.session.rollback()
 
-        await self._write_failure(document_id, exc)
+        # Re-read after the rollback, for the name the user uploaded under.
+        # The caller only has the id, and the parser only ever saw the
+        # generated storage path.
+        document = await self.document_repository.get_by_id(document_id)
 
-    async def _write_failure(self, document_id, exc: Exception) -> None:
+        await self._write_failure(
+            document_id,
+            exc,
+            filename=document.filename if document is not None else None,
+        )
+
+    async def _write_failure(
+        self,
+        document_id,
+        exc: Exception,
+        *,
+        filename: str | None = None,
+    ) -> None:
         await self.document_repository.mark_failed(
             document_id,
-            error_message=_user_facing_error(exc),
+            error_message=_user_facing_error(exc, filename),
         )
         await self.document_repository.session.commit()
 
@@ -197,6 +220,7 @@ class DocumentProcessingService:
         # raises MissingGreenlet, which replaces the real error and leaves
         # the document with no FAILED status at all.
         document_pk = document.id
+        document_filename = document.filename
 
         try:
             await self.document_repository.mark_processing(document_pk)
@@ -272,6 +296,8 @@ class DocumentProcessingService:
             await self.document_repository.session.rollback()
 
             if record_failure:
-                await self._write_failure(document_pk, exc)
+                await self._write_failure(
+                    document_pk, exc, filename=document_filename
+                )
 
             raise

@@ -27,7 +27,7 @@ os.environ["LLM_PROVIDER"] = "mock"
 # defaults to "huggingface", which downloads and loads sentence-transformers
 # on first use. Every run so far has been passing it on the command line, so
 # the documented Verify command did not work as documented.
-os.environ.setdefault("EMBEDDING_PROVIDER", "mock")
+os.environ["EMBEDDING_PROVIDER"] = "mock"
 
 # Settings are a module-level singleton built at import time, so the line above
 # only wins if nothing imported app.core.config before this conftest. A plugin
@@ -35,24 +35,34 @@ os.environ.setdefault("EMBEDDING_PROVIDER", "mock")
 # silently re-point the suite at the live paid provider. Fail loudly instead.
 from app.core.config import get_settings  # noqa: E402
 
-assert get_settings().LLM_PROVIDER == "mock", (
+# Bound to locals before asserting, deliberately. pytest rewrites assertions
+# by rendering each operand, so `assert get_settings().X == "mock"` puts the
+# whole Settings repr in the failure message -- and JWT_SECRET, GROQ_API_KEY,
+# OPENAI_API_KEY, OPENROUTER_API_KEY, HF_TOKEN and LANGSMITH_API_KEY are plain
+# str, not SecretStr, so every one of them would be printed verbatim into a
+# terminal scrollback, a pasted traceback or a public CI log. Comparing two
+# locals keeps the message to the two strings that matter.
+_settings = get_settings()
+_llm_provider = _settings.LLM_PROVIDER
+_embedding_provider = _settings.EMBEDDING_PROVIDER
+
+assert _llm_provider == "mock", (
     "tests/conftest.py ran after app.core.config was already imported, so the "
     "LLM_PROVIDER pin did not take effect and the suite would hit the live "
     "provider. Move the pin into pytest.ini if a plugin now loads first."
 )
 
-assert get_settings().EMBEDDING_PROVIDER == "mock", (
+assert _embedding_provider == "mock", (
     "EMBEDDING_PROVIDER is not mock, so the suite would load "
     "sentence-transformers. Set EMBEDDING_PROVIDER=mock, or move the pin "
     "into pytest.ini if a plugin now loads before this conftest."
 )
 
+
 from packages.database.models import (
     Tenant,
     Organization,
     User,
-    AuditLog,
-    AuditAction,
 )
 
 DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/crm_copilot"

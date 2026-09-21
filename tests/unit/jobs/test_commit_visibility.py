@@ -107,27 +107,31 @@ async def committed_upload(tmp_path, database_url):
     try:
         yield sessionmaker, ids, source
     finally:
-        document_id, tenant_id, org_id, user_id = ids
+        # The engines are released in their own finally: the deletes below
+        # touch real committed rows, and a failure in one of them must not
+        # leak a connection pool for the rest of the session.
+        try:
+            document_id, tenant_id, org_id, user_id = ids
 
-        async with sessionmaker() as session:
-            await session.execute(
-                delete(DocumentChunk).where(
-                    DocumentChunk.document_id == document_id
+            async with sessionmaker() as session:
+                await session.execute(
+                    delete(DocumentChunk).where(
+                        DocumentChunk.document_id == document_id
+                    )
                 )
-            )
-            await session.execute(
-                delete(KnowledgeDocument).where(
-                    KnowledgeDocument.id == document_id
+                await session.execute(
+                    delete(KnowledgeDocument).where(
+                        KnowledgeDocument.id == document_id
+                    )
                 )
-            )
-            await session.execute(delete(User).where(User.id == user_id))
-            await session.execute(
-                delete(Organization).where(Organization.id == org_id)
-            )
-            await session.execute(delete(Tenant).where(Tenant.id == tenant_id))
-            await session.commit()
-
-        await engine.dispose()
+                await session.execute(delete(User).where(User.id == user_id))
+                await session.execute(
+                    delete(Organization).where(Organization.id == org_id)
+                )
+                await session.execute(delete(Tenant).where(Tenant.id == tenant_id))
+                await session.commit()
+        finally:
+            await engine.dispose()
 
 
 @pytest.mark.asyncio

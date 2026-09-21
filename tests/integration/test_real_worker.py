@@ -58,14 +58,29 @@ def _redis_settings() -> RedisSettings:
     return RedisSettings.from_dsn(REDIS_URL)
 
 
-async def _redis_available() -> bool:
-    try:
-        pool = await create_pool(_redis_settings())
-    except Exception:
-        return False
+_REDIS_REACHABLE: bool | None = None
 
-    await pool.aclose()
-    return True
+
+async def _redis_available() -> bool:
+    """Probed once per session, not once per test.
+
+    Connecting to a Redis that is not there costs about twelve seconds, and
+    the fixture is function-scoped, so a developer without compose running
+    used to pay that for every test in this file just to reach the skip.
+    """
+
+    global _REDIS_REACHABLE
+
+    if _REDIS_REACHABLE is None:
+        try:
+            pool = await create_pool(_redis_settings())
+        except Exception:
+            _REDIS_REACHABLE = False
+        else:
+            await pool.aclose()
+            _REDIS_REACHABLE = True
+
+    return _REDIS_REACHABLE
 
 
 @pytest_asyncio.fixture
@@ -149,32 +164,36 @@ async def worker_env(tmp_path, database_url):
     try:
         yield sessionmaker, pool, ids, source
     finally:
-        document_id, tenant_id, org_id, user_id = ids
+        # The engines are released in their own finally: the deletes below
+        # touch real committed rows, and a failure in one of them must not
+        # leak a connection pool for the rest of the session.
+        try:
+            document_id, tenant_id, org_id, user_id = ids
 
-        async with sessionmaker() as session:
-            await session.execute(
-                delete(DocumentChunk).where(
-                    DocumentChunk.document_id == document_id
+            async with sessionmaker() as session:
+                await session.execute(
+                    delete(DocumentChunk).where(
+                        DocumentChunk.document_id == document_id
+                    )
                 )
-            )
-            await session.execute(
-                delete(KnowledgeDocument).where(
-                    KnowledgeDocument.id == document_id
+                await session.execute(
+                    delete(KnowledgeDocument).where(
+                        KnowledgeDocument.id == document_id
+                    )
                 )
-            )
-            await session.execute(delete(User).where(User.id == user_id))
-            await session.execute(
-                delete(Organization).where(Organization.id == org_id)
-            )
-            await session.execute(delete(Tenant).where(Tenant.id == tenant_id))
-            await session.commit()
+                await session.execute(delete(User).where(User.id == user_id))
+                await session.execute(
+                    delete(Organization).where(Organization.id == org_id)
+                )
+                await session.execute(delete(Tenant).where(Tenant.id == tenant_id))
+                await session.commit()
 
-        # Leave nothing queued for the next run, and no stale health key.
-        await pool.delete(QUEUE)
-        await pool.delete(f"{QUEUE}:health-check")
-        await pool.aclose()
-
-        await engine.dispose()
+            # Leave nothing queued for the next run, and no stale health key.
+            await pool.delete(QUEUE)
+            await pool.delete(f"{QUEUE}:health-check")
+        finally:
+            await pool.aclose()
+            await engine.dispose()
 
 
 async def _drain(pool, *, seconds=45.0, max_jobs=8):
@@ -458,7 +477,10 @@ async def test_a_deterministic_failure_is_not_retried(worker_env, monkeypatch):
     assert len(attempts) == 1, f"a deterministic failure ran {attempts} times"
     assert status == DocumentProcessingStatus.FAILED
     assert message
-    assert "not found" in message.lower()
+
+    # Named for the person who uploaded it: the parser only ever saw the
+    # generated storage path, so the name has to come off the document row.
+    assert message.startswith(f"{source.name}: ")
     assert str(source.parent) not in message
 
 

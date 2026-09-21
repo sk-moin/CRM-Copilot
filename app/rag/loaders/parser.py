@@ -61,17 +61,19 @@ class DocumentParser:
 
         if not path.exists():
             raise DocumentParsingError(
-                # Name only. This message is stored on the document and served
-                # by the status endpoint, and the full path is the
-                # server's upload directory.
-                f"Document not found: {path.name}"
+                # No filename at all. This message is stored on the document
+                # and served by the status endpoint, and the only name the
+                # parser has is the generated hex one the upload route wrote
+                # -- the caller has never seen it. The service prefixes the
+                # name the user actually sent.
+                "the uploaded file is no longer available"
             )
 
         extension = path.suffix.lower()
 
         if extension not in self.SUPPORTED_EXTENSIONS:
             raise UnsupportedDocumentTypeError(
-                f"Unsupported document type: {extension}"
+                f"unsupported document type {extension}"
             )
 
         try:
@@ -95,7 +97,7 @@ class DocumentParser:
 
         except Exception as exc:
             raise DocumentParsingError(
-                f"Failed to parse '{path.name}'"
+                "the document could not be read"
             ) from exc
 
     @staticmethod

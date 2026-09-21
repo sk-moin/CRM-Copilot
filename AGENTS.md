@@ -347,12 +347,19 @@ docker compose --profile worker up -d worker
   deliberately (unsupported type, unreadable or missing file) is terminal on
   the first attempt, and anything else -- a dropped connection, a provider
   returning 503 -- raises `Retry` and backs off 30s then 60s while attempts
-  remain. `FAILED` is always written before the job ends, so a document
-  never goes quiet. The uploaded file is kept when the failure was
-  transient, because it is the only copy and a brief outage must not
-  destroy it, and deleted when the failure was deterministic, because no
-  retry will ever read it and keeping it would let anyone fill the shared
-  directory with rubbish that has an allowed extension.
+  remain. `FAILED` is written for every failure of a document the job can
+  see; a job naming a document that does not exist, or belongs to another
+  tenant, leaves it untouched by design. The one gap is a database still
+  unreachable on the final attempt, when the failure cannot be written at
+  all and the document stays at `PARSING` -- nothing sweeps or re-queues it,
+  so that needs an operator.
+- Uploads: kept when the failure was transient, because the file is the only
+  copy and a brief outage must not destroy it; deleted when the failure was
+  deterministic, because no retry will ever read it and keeping it would let
+  anyone fill the shared directory with rubbish that has an allowed
+  extension. Nothing removes a kept file afterwards and no endpoint re-queues
+  a `FAILED` document, so after an outage `UPLOAD_DIR` grows until someone
+  clears it and re-running one means enqueuing it by hand.
 - Timeouts: `JOB_TIMEOUT_SECONDS` (default 1800). The task sets its own
   deadline just inside arq's, because arq enforces `job_timeout` by
   cancelling the task -- which arrives as `CancelledError`, a
@@ -367,7 +374,7 @@ docker compose --profile worker up -d worker
   Redis and the database. Every other job test calls the task directly, and
   three separate defects hid in the gap where arq's own control flow was
   never involved. Keep the real-worker coverage when changing the task.
-- Uploads: `UPLOAD_DIR` (default `var/uploads`) must be reachable by both
+- Upload directory: `UPLOAD_DIR` (default `var/uploads`) must be reachable by both
   processes. The bind mount covers a single host; more than one needs object
   storage instead.
 

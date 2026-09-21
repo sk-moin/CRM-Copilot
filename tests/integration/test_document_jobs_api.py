@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 
@@ -353,3 +353,225 @@ async def test_an_empty_document_is_rejected(authed_client, tmp_path):
 
     assert response.status_code == 400
     enqueued.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_failure_reason_names_the_file_the_user_uploaded(
+    authed_client,
+    _async_session,
+    seeded_user,
+    tmp_path,
+):
+    """Not the generated one the server stored it under.
+
+    The route writes the upload as `uuid4().hex` plus the extension, so
+    `storage_path` never contains the caller's name. A parse failure used to
+    report that hex id, which the caller has never seen. Driven through the
+    route rather than a fixture, because a fixture that happens to name its
+    temp file `notes.txt` makes the old behaviour look correct.
+    """
+
+    from app.rag.document_processing_service import DocumentProcessingService
+    from app.rag.exceptions import DocumentParsingError
+
+    uploaded_as = "Q3-renewals.txt"
+
+    with patch.object(
+        document_routes,
+        "enqueue",
+        AsyncMock(return_value="job-1"),
+    ), patch.object(
+        document_routes.config,
+        "UPLOAD_DIR",
+        str(tmp_path),
+    ):
+        response = await authed_client.post(
+            "/api/v1/documents/upload",
+            files={"file": (uploaded_as, b"Acme renewal terms.", "text/plain")},
+        )
+
+    assert response.status_code == 202
+
+    document_id = response.json()["document_id"]
+
+    stored = list(Path(tmp_path).iterdir())[0].name
+    assert stored != uploaded_as, "the stored name should be generated"
+
+    service = DocumentProcessingService(
+        parser=None,
+        splitter=None,
+        document_repository=document_routes.KnowledgeDocumentRepository(
+            session=_async_session,
+            tenant_id=seeded_user.tenant_id,
+        ),
+        chunk_repository=None,
+        vector_store=None,
+    )
+
+    await service.record_failure(
+        UUID(document_id),
+        DocumentParsingError("the document could not be read"),
+    )
+
+    status = await authed_client.get(
+        f"/api/v1/documents/{document_id}/status"
+    )
+
+    message = status.json()["error_message"]
+
+    assert message.startswith(f"{uploaded_as}: "), message
+    assert stored not in message, "the generated storage name leaked"
+
+# --------------------------------------------------------------------------- #
+# The filename is client input, and it is echoed back
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "sent, expected",
+    [
+        ("Q3-renewals.txt", "Q3-renewals.txt"),
+        # Directory parts never belong in a display name.
+        ("../../../etc/passwd.txt", "passwd.txt"),
+        # Backslashes too. `Path(...).name` strips these on Windows and
+        # leaves them untouched on Linux, where the app actually runs, so
+        # a suite on a Windows machine could never catch the difference.
+        ("..\\..\\secrets\\Q3.txt", "Q3.txt"),
+        ("\\\\server\\share\\Q3.txt", "Q3.txt"),
+        ("mixed/path\\Q3.txt", "Q3.txt"),
+        # A newline would split a log line; an ESC would colour a terminal.
+        ("evil\nInjected: yes.txt", "evilInjected: yes.txt"),
+        ("\x1b[31mred.txt", "[31mred.txt"),
+        # Empty or path-only names still have to produce something.
+        ("", "document"),
+        ("../../", "document"),
+    ],
+)
+def test_the_stored_filename_is_reduced_to_something_safe_to_echo(
+    sent,
+    expected,
+):
+    """`file.filename` is raw multipart input and lands in `error_message`.
+
+    Unit-level because a multipart encoder will not transmit some of these;
+    the route calls this helper on whatever it is handed.
+    """
+
+    from app.api.routes.document import _safe_filename
+
+    assert _safe_filename(sent) == expected
+
+
+def test_the_filename_reduction_does_not_depend_on_the_host_platform():
+    """The separator handling must not come from `os.path` or `Path`.
+
+    `Path(...).name` strips backslashes on Windows and leaves them intact
+    on Linux, where compose runs the app. This suite runs on Windows, so
+    swapping the implementation back to `Path` leaves every case green
+    here and breaks only in CI -- which is the trap, not an argument that
+    it does not matter. The first assertion records what a POSIX-flavoured
+    implementation would return, so the hazard is visible in the test even
+    on a host that cannot fail it.
+    """
+
+    import ntpath
+    import posixpath
+
+    from app.api.routes.document import _safe_filename
+
+    windows_style = "..\\..\\secrets\\Q3.txt"
+
+    assert posixpath.basename(windows_style) == windows_style, (
+        "on Linux a POSIX basename returns the whole path -- this is the "
+        "behaviour the helper must not inherit"
+    )
+    assert ntpath.basename(windows_style) == "Q3.txt"
+
+    assert _safe_filename(windows_style) == "Q3.txt"
+    assert _safe_filename("../../secrets/Q3.txt") == "Q3.txt"
+
+
+def test_the_filename_cap_actually_caps():
+    """Pinned separately from the reduction, because it did not hold.
+
+    The first version of this test fed a name that was already exactly at
+    the limit, so removing the cap changed nothing and the whole file
+    stayed green. These inputs are far over it, and one of them exercises
+    the case that returned 9001 characters: a dot near the front makes the
+    text after it longer than the whole budget, and trimming the stem by
+    the difference then slices from the wrong end.
+    """
+
+    from app.api.routes.document import _MAX_FILENAME, _safe_filename
+
+    for raw in (
+        "a" * 9000 + ".txt",
+        "a." + "b" * 9000,
+        "x" * 50 + "." + "c" * 200,
+        "y" * 100000,
+    ):
+        assert len(_safe_filename(raw)) <= _MAX_FILENAME, (
+            f"a {len(raw)}-character name survived the cap"
+        )
+
+    # A short extension is worth keeping; an oversized one is not.
+    assert _safe_filename("a" * 9000 + ".txt").endswith(".txt")
+
+
+def test_the_failure_reason_caps_the_name_independently():
+    """`_user_facing_error` has its own cap and it is not decoration.
+
+    It is written by paths that never went through the upload route, so it
+    cannot assume the name was already reduced. The earlier test passed it
+    a string that was already at the limit, which made the two caps
+    indistinguishable.
+    """
+
+    from app.rag.document_processing_service import _user_facing_error
+    from app.rag.exceptions import DocumentParsingError
+
+    reason = "the document could not be read"
+
+    message = _user_facing_error(DocumentParsingError(reason), "z" * 9000)
+
+    assert reason in message, "an unbounded name evicted the reason"
+    assert len(message) <= 2000
+
+
+@pytest.mark.asyncio
+async def test_an_uploaded_name_with_a_path_in_it_is_stored_reduced(
+    authed_client,
+    _async_session,
+    tmp_path,
+):
+    """End to end through the route, not just the helper."""
+
+    with patch.object(
+        document_routes,
+        "enqueue",
+        AsyncMock(return_value="job-1"),
+    ), patch.object(
+        document_routes.config,
+        "UPLOAD_DIR",
+        str(tmp_path),
+    ):
+        response = await authed_client.post(
+            "/api/v1/documents/upload",
+            files={
+                "file": (
+                    "../../secrets/Q3.txt",
+                    b"Acme renewal terms.",
+                    "text/plain",
+                )
+            },
+        )
+
+    assert response.status_code == 202
+
+    rows = await _async_session.execute(
+        select(KnowledgeDocument).where(
+            KnowledgeDocument.id == UUID(response.json()["document_id"])
+        )
+    )
+
+    assert rows.scalar_one().filename == "Q3.txt"

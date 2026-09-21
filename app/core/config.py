@@ -13,6 +13,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Every secret below carries repr=False, which keeps it out of repr(),
+    # str(), f-strings and anything that logs the object. That is the path
+    # that actually bit: pytest's assertion rewriting reports
+    # `where <the whole Settings repr>.FIELD`, which put a live JWT secret
+    # into a test failure message.
+    #
+    # It is not a general guarantee, and nothing should be written on the
+    # assumption that it is. These still disclose, because they read the
+    # values rather than the repr:
+    #
+    #   * model_dump() and model_dump_json()
+    #   * vars() / __dict__
+    #   * a ValidationError whose offending input is a secret field
+    #
+    # Nothing in this project does any of those with the settings today. If
+    # something needs to, redact at that call site or move these fields to
+    # SecretStr, which costs roughly 26 read sites across 12 files.
     """Typed settings for the CRM Copilot application.
 
     Using a ``BaseSettings`` subclass provides automatic parsing of environment
@@ -26,7 +43,10 @@ class Settings(BaseSettings):
     )
 
     # Core auth settings
-    JWT_SECRET: str = Field(default_factory=lambda: os.getenv("JWT_SECRET", "test-secret"))
+    JWT_SECRET: str = Field(
+        default_factory=lambda: os.getenv("JWT_SECRET", "test-secret"),
+        repr=False,
+    )
     ACCESS_TOKEN_EXPIRE_SECONDS: int = Field(default=900, env="ACCESS_TOKEN_EXPIRE_SECONDS")
     REFRESH_TOKEN_TTL_SECONDS: int = Field(default=2592000, env="REFRESH_TOKEN_TTL_SECONDS")
     REDIS_URL: str = Field(default="redis://localhost:6379", env="REDIS_URL")
@@ -46,27 +66,31 @@ class Settings(BaseSettings):
     JWT_AUDIENCE: str = Field(default="crm-copilot-api", env="JWT_AUDIENCE")
 
     # OpenAI provider configuration
-    OPENAI_API_KEY: str = Field(default="", env="OPENAI_API_KEY")
+    OPENAI_API_KEY: str = Field(default="", env="OPENAI_API_KEY", repr=False)
     OPENAI_BASE_URL: str | None = Field(default=None, env="OPENAI_BASE_URL")
     OPENAI_MODEL: str = Field(default="gpt-4o", env="OPENAI_MODEL")
     OPENAI_TIMEOUT: float = Field(default=60.0, env="OPENAI_TIMEOUT")
     OPENAI_MAX_RETRIES: int = Field(default=3, env="OPENAI_MAX_RETRIES")
 
     # OpenRouter provider configuration
-    OPENROUTER_API_KEY: str | None = Field(default=None, env="OPENROUTER_API_KEY")
+    OPENROUTER_API_KEY: str | None = Field(
+        default=None, env="OPENROUTER_API_KEY", repr=False
+    )
     OPENROUTER_MODEL: str = Field(default="openai/gpt-oss-20b:free", env="OPENROUTER_MODEL")
 
-    GROQ_API_KEY: str | None = Field(default=None, env="GROQ_API_KEY")
+    GROQ_API_KEY: str | None = Field(default=None, env="GROQ_API_KEY", repr=False)
     GROQ_MODEL: str = Field(default="openai/gpt-oss-20b", env="GROQ_MODEL")
 
     LLM_PROVIDER: str = Field(default="openrouter", env="LLM_PROVIDER")
 
-    HF_TOKEN: str | None = Field(default=None,env="HF_TOKEN")
+    HF_TOKEN: str | None = Field(default=None, env="HF_TOKEN", repr=False)
         
     APP_URL: str = Field(default="http://localhost:8000",env="APP_URL")
 
 
-    LANGSMITH_API_KEY: str | None = Field(default=None, env="LANGSMITH_API_KEY")
+    LANGSMITH_API_KEY: str | None = Field(
+        default=None, env="LANGSMITH_API_KEY", repr=False
+    )
     LANGSMITH_PROJECT: str = Field(default="crm-copilot", env="LANGSMITH_PROJECT")
     LANGSMITH_TRACING: bool = Field(default=False, env="LANGSMITH_TRACING")
 

@@ -7,6 +7,7 @@ Document upload endpoints for the RAG knowledge base.
 from __future__ import annotations
 
 import logging
+import ntpath
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -50,6 +51,63 @@ logger = logging.getLogger(__name__)
 _UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
+# The multipart filename is raw client input: unvalidated, unbounded, and
+# it ends up on the document row, which the status endpoint serves back.
+# Kept for the caller's benefit -- being told which of their files failed
+# is the point -- but reduced to something safe to echo first.
+_MAX_FILENAME = 120
+
+# Nothing past this is examined. Multipart will hand over a filename of any
+# size, and scanning a megabyte of it on the event loop costs a fifth of a
+# second before the real work starts.
+_MAX_RAW_FILENAME = 4096
+
+
+def _safe_filename(raw: str | None) -> str:
+    """A display name fit to store and serve back.
+
+    Drops any directory part, caps the length so a long name cannot crowd
+    the failure reason out of a truncated `error_message`, and removes
+    control characters -- a newline would split a log line and an ESC would
+    colour a terminal.
+    """
+
+    # `ntpath.basename` rather than `Path(...).name`, on purpose. `Path` is
+    # platform-dependent: on Windows it strips backslashes, on Linux --
+    # where compose runs this app -- a backslash is an ordinary filename
+    # character and a Windows-style path survives whole. A suite running on
+    # Windows can never observe that difference. ntpath treats both
+    # separators the same everywhere.
+    # Bounded from the end, not the start: the basename and the extension
+    # are both at the tail, so trimming the front costs nothing real.
+    name = ntpath.basename((raw or "")[-_MAX_RAW_FILENAME:])
+
+    # Capped before the per-character filter below, which is O(n) on
+    # whatever the client sent; this bounds that work to 120 characters.
+    if len(name) > _MAX_FILENAME:
+        stem, dot, suffix = name.rpartition(".")
+
+        if dot and len(suffix) + 1 < _MAX_FILENAME:
+            # Trim the stem and keep the extension. Truncating from the
+            # front instead would drop it and turn a merely absurd name
+            # into a misleading 415.
+            name = stem[: _MAX_FILENAME - len(suffix) - 1] + "." + suffix
+        else:
+            # A "suffix" longer than the whole budget is not an extension.
+            # Slicing the stem by the difference goes negative and trims
+            # the wrong end: that returned 9001 characters for
+            # `"a." + "b" * 9000`.
+            name = name[:_MAX_FILENAME]
+
+    name = "".join(ch for ch in name if ch.isprintable()).strip()
+
+    # `..` is a traversal fragment, not a name to show anyone.
+    if not name.strip("."):
+        return "document"
+
+    return name or "document"
+
+
 class _TooLarge(Exception):
     """Internal signal, so the partial file is removed before the 413."""
 
@@ -86,7 +144,8 @@ async def upload_document(
     # Rejected here rather than in the worker. A type the parser cannot read
     # would otherwise take a 202, occupy the queue for three doomed attempts,
     # and only then tell the caller what was wrong with their request.
-    suffix = Path(file.filename or "").suffix.lower()
+    display_name = _safe_filename(file.filename)
+    suffix = Path(display_name).suffix.lower()
 
     if suffix not in DocumentParser.SUPPORTED_EXTENSIONS:
         raise HTTPException(
@@ -163,8 +222,8 @@ async def upload_document(
             tenant_id=current_user.tenant_id,
             org_id=current_user.org_id,
             owner_id=current_user.id,
-            title=title or Path(file.filename).stem,
-            filename=file.filename,
+            title=title or Path(display_name).stem,
+            filename=display_name,
             storage_path=str(stored_path),
             document_type=suffix.lstrip(".").lower(),
             source_type="upload",
