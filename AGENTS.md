@@ -320,6 +320,60 @@ docker compose up -d postgres redis
 - Redis on host port **6380** in compose; `REDIS_URL` defaults to `6379`, so set
   `REDIS_URL=redis://localhost:6380` unless another Redis already serves 6379
 
+### Background worker
+
+Document ingestion runs out of process. The API accepts an upload, writes the
+file to `UPLOAD_DIR`, enqueues a job and returns `202`; the worker parses,
+chunks, embeds and indexes it, then deletes the file. Poll
+`GET /api/v1/documents/{id}/status` for progress.
+
+```
+arq app.jobs.worker.WorkerSettings
+```
+
+Or in compose, where the service sits behind a profile so `docker compose up`
+does not start it by accident:
+
+```
+docker compose --profile worker up -d worker
+```
+
+- Queue name: `JOB_QUEUE_NAME` (default `crm_copilot:jobs`), set explicitly on
+  both sides. The dev Redis here is shared with an unrelated container, and
+  arq's default queue name would let either side eat the other's jobs.
+- Retries: `JOB_MAX_TRIES` (default 3), and only transient failures use them.
+  arq reschedules a job when the task raises `Retry`, not when it raises an
+  ordinary exception, so the task decides: anything the RAG pipeline raises
+  deliberately (unsupported type, unreadable or missing file) is terminal on
+  the first attempt, and anything else -- a dropped connection, a provider
+  returning 503 -- raises `Retry` and backs off 30s then 60s while attempts
+  remain. `FAILED` is always written before the job ends, so a document
+  never goes quiet. The uploaded file is kept when the failure was
+  transient, because it is the only copy and a brief outage must not
+  destroy it, and deleted when the failure was deterministic, because no
+  retry will ever read it and keeping it would let anyone fill the shared
+  directory with rubbish that has an allowed extension.
+- Timeouts: `JOB_TIMEOUT_SECONDS` (default 1800). The task sets its own
+  deadline just inside arq's, because arq enforces `job_timeout` by
+  cancelling the task -- which arrives as `CancelledError`, a
+  `BaseException` the handler cannot catch -- and then treats the resulting
+  `TimeoutError` as terminal rather than retryable. Owning the deadline is
+  what lets expiry be recorded instead of stranding the document. Because
+  the deadline expires by cancelling, `record_failure` rolls back before it
+  writes: `CancelledError` bypasses the service's own `except Exception`,
+  so the session still holds the half-finished ingestion. It only fires at
+  an await point, so a genuinely CPU-bound parse still blocks the loop.
+- `tests/integration/test_real_worker.py` runs a real arq worker against
+  Redis and the database. Every other job test calls the task directly, and
+  three separate defects hid in the gap where arq's own control flow was
+  never involved. Keep the real-worker coverage when changing the task.
+- Uploads: `UPLOAD_DIR` (default `var/uploads`) must be reachable by both
+  processes. The bind mount covers a single host; more than one needs object
+  storage instead.
+
+Without a worker running, uploads still return `202` and then sit at
+`UPLOADED` forever. That is the expected failure and the first thing to check.
+
 ### Dependencies
 
 ```
@@ -338,13 +392,14 @@ from a clean virtualenv.
 - **Build.** There is no build step for this application.
 - **Lint, coverage, browser tests, security scans.** None are configured.
 
-### Migration warning
+### Migrations
 
-`alembic revision --autogenerate` currently produces around 420 lines of
-unrelated destructive drift, including dropping the `document_chunks` ivfflat
-vector index and several foreign keys on `knowledge_documents` and `prompt`.
-The models and the live schema have diverged. Write migrations by hand until
-that is resolved.
+`alembic revision --autogenerate` produces an empty migration against the
+current schema: the models and the live database agree. An earlier build did
+not, and autogenerate emitted around 420 lines of destructive drift including
+a dropped ivfflat vector index; `be95217572f6` closed that gap. If
+autogenerate starts proposing unrelated changes again, treat it as a signal
+that a model was edited without a migration rather than as noise to ignore.
 
 Browser testing is opt-in and not configured. Run `/tests browser` or
 `$tests browser` to add a harness and document its exact command as `Browser

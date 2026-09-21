@@ -127,15 +127,26 @@ class KnowledgeDocumentRepository(BaseRepository):
         *,
         chunk_count: int,
     ) -> Optional[KnowledgeDocument]:
-        """Mark processing as completed."""
+        """Mark processing as completed.
 
-        return await self.update_processing_result(
+        Also clears any reason left by an earlier failed attempt:
+        `update_processing_result` skips None arguments, so it cannot clear
+        a column, and a re-queued document would otherwise report READY
+        while still carrying the old error text.
+        """
+
+        instance = await self.update_processing_result(
             document_id=document_id,
             status=DocumentProcessingStatus.READY,
             chunk_count=chunk_count,
             processed_at=datetime.utcnow(),
             error_message=None,
         )
+
+        if instance is not None:
+            instance.error_message = None
+
+        return instance
 
     async def mark_failed(
         self,

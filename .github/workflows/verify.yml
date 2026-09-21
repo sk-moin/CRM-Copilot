@@ -45,7 +45,17 @@ jobs:
       # third-party API: it costs money and makes a red run ambiguous between a
       # code defect and someone else's outage.
       LLM_PROVIDER: mock
+      # Defaults to huggingface, which downloads sentence-transformers.
+      # tests/conftest.py also pins this; set here so the intent is visible
+      # in the job and so anything running outside that conftest agrees.
+      EMBEDDING_PROVIDER: mock
       REDIS_URL: redis://localhost:6379
+      # tests/integration/test_real_worker.py drives a real arq worker and
+      # SKIPS when it cannot reach Redis. It defaults to the compose port
+      # 6380, which does not exist here, so without this the five tests
+      # covering arq's real control flow would quietly not run -- and they
+      # are the only coverage of the retry, timeout and stranding behaviour.
+      TEST_REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-secret-not-used-anywhere-else
       APP_ENV: test
 

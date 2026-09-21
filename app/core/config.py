@@ -30,6 +30,17 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_SECONDS: int = Field(default=900, env="ACCESS_TOKEN_EXPIRE_SECONDS")
     REFRESH_TOKEN_TTL_SECONDS: int = Field(default=2592000, env="REFRESH_TOKEN_TTL_SECONDS")
     REDIS_URL: str = Field(default="redis://localhost:6379", env="REDIS_URL")
+
+    # Background jobs. The queue name is explicit because a Redis instance may
+    # be shared with another project; the arq default would let jobs cross.
+    JOB_QUEUE_NAME: str = Field(default="crm_copilot:jobs", env="JOB_QUEUE_NAME")
+    JOB_MAX_TRIES: int = Field(default=3, ge=1, env="JOB_MAX_TRIES")
+    # ge=2 so the task's deadline can always sit strictly inside it; below
+    # that the two collapse and arq's cancellation wins, which is the one
+    # path the task cannot record.
+    JOB_TIMEOUT_SECONDS: int = Field(default=1800, ge=2, env="JOB_TIMEOUT_SECONDS")
+    UPLOAD_DIR: str = Field(default="var/uploads", env="UPLOAD_DIR")
+    MAX_UPLOAD_BYTES: int = Field(default=25 * 1024 * 1024, ge=1, env="MAX_UPLOAD_BYTES")
     TOKEN_ALGORITHM: str = Field(default="HS256", env="TOKEN_ALGORITHM")
     JWT_ISSUER: str = Field(default="crm-copilot", env="JWT_ISSUER")
     JWT_AUDIENCE: str = Field(default="crm-copilot-api", env="JWT_AUDIENCE")
@@ -98,6 +109,11 @@ JWT_SECRET: Final[str] = _settings.JWT_SECRET
 ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = _settings.ACCESS_TOKEN_EXPIRE_SECONDS
 REFRESH_TOKEN_TTL_SECONDS: Final[int] = _settings.REFRESH_TOKEN_TTL_SECONDS
 REDIS_URL: Final[str] = _settings.REDIS_URL
+JOB_QUEUE_NAME: Final[str] = _settings.JOB_QUEUE_NAME
+JOB_MAX_TRIES: Final[int] = _settings.JOB_MAX_TRIES
+JOB_TIMEOUT_SECONDS: Final[int] = _settings.JOB_TIMEOUT_SECONDS
+UPLOAD_DIR: Final[str] = _settings.UPLOAD_DIR
+MAX_UPLOAD_BYTES: Final[int] = _settings.MAX_UPLOAD_BYTES
 TOKEN_ALGORITHM: Final[str] = _settings.TOKEN_ALGORITHM
 JWT_ISSUER: Final[str] = _settings.JWT_ISSUER
 JWT_AUDIENCE: Final[str] = _settings.JWT_AUDIENCE
@@ -166,6 +182,11 @@ __all__ = [
     "ACCESS_TOKEN_EXPIRE_SECONDS",
     "REFRESH_TOKEN_TTL_SECONDS",
     "REDIS_URL",
+    "JOB_QUEUE_NAME",
+    "JOB_MAX_TRIES",
+    "JOB_TIMEOUT_SECONDS",
+    "UPLOAD_DIR",
+    "MAX_UPLOAD_BYTES",
     "TOKEN_ALGORITHM",
     "JWT_ISSUER",
     "JWT_AUDIENCE",

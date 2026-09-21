@@ -1,6 +1,6 @@
 # CRM Copilot - Project Overview
 
-<!-- blueprint:source-hash 176976a0837c6554bee674df60b860c0ff98c9544053f6feead4a757bbb2fc38 -->
+<!-- blueprint:source-hash 207d0e7a7a6d48260acd98dc3f02724f5332f5c9898cbe301194302eae42de28 -->
 
 > A multi-tenant CRM with a guardrailed, RAG-grounded AI agent that answers
 > natural-language questions about the org's own records and documents, built to

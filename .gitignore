@@ -144,3 +144,6 @@ tmp/
 temp/
 .cache/
 .cache-loader/
+
+# Uploaded documents awaiting ingestion (see UPLOAD_DIR)
+var/

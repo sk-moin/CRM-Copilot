@@ -13,6 +13,14 @@ class DocumentProcessingError(RAGError):
     """Raised when document processing fails."""
 
 
+class DocumentNotFoundError(DocumentProcessingError):
+    """The document does not exist, or does not belong to this tenant.
+
+    Distinct because there is nothing to record a failure against: a job
+    naming another tenant's document must leave no trace on it at all.
+    """
+
+
 class UnsupportedDocumentTypeError(DocumentProcessingError):
     """Raised when an unsupported document type is provided."""
 

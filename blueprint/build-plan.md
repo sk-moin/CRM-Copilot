@@ -29,7 +29,7 @@ Start with your first real slice of functionality.
 - [x] 008. **Prompt Management** - Centralized, versioned, tenant-aware prompt store replacing hardcoded prompts across the agent
 - [x] 009. **AI Guardrails & Safety (NVIDIA NeMo Guardrails)** - Input/output rails governing the chat and RAG response paths, guarding against jailbreaks, prompt injection, off-topic responses, prompt/secret leakage and unsafe content
 - [x] 010. **AI Actions & Approval Layer** - Lets the agent propose CRM-mutating actions that route through human approval before executing, building on the Spec 003 audit trail
-- [ ] 011. **Background Jobs** - Async task queue for long-running work (ingestion, embeddings, eval runs) off the request/response path
+- [x] 011. **Background Jobs** - Async task queue for long-running work (ingestion, embeddings, eval runs) off the request/response path
 - [ ] 012. **Rate Limiting** - Redis-backed per-tenant/per-user request throttling via fastapi-limiter
 - [ ] 013. **Observability** - Structured logging, metrics, and tracing across the API and agent layers, beyond the retrieval-only tracing from Spec 006
 - [ ] 014. **AI Evaluation Framework** - Automated regression + LLM-as-judge eval suite for agent responses and retrieval quality

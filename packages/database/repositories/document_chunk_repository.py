@@ -237,10 +237,6 @@ class DocumentChunkRepository(BaseRepository):
             for chunk, dist in rows
         ]
 
-    # ------------------------------------------------------------------ #
-    # Metadata
-    # ------------------------------------------------------------------ #
-
     async def filter_by_metadata(
         self,
         filters: dict[str, Any],

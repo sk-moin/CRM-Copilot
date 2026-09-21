@@ -16,6 +16,7 @@ from app.rag.document_processing_service import (
 from app.rag.models.document_processing_request import (
     DocumentProcessingRequest,
 )
+from app.rag.exceptions import ChunkingError, DocumentParsingError
 from packages.database.models.enums import (
     DocumentProcessingStatus,
 )
@@ -86,8 +87,18 @@ def processing_request() -> DocumentProcessingRequest:
 
 @pytest.fixture
 def persisted_document():
+    """The row as it comes back from create.
+
+    The service reads the metadata off this, not off the request: by the time
+    the worker processes a document the request is long gone.
+    """
+
     return SimpleNamespace(
         id=uuid4(),
+        title="CRM Handbook",
+        filename="crm.pdf",
+        storage_path="/tmp/crm.pdf",
+        document_type="pdf",
     )
 
 
@@ -127,6 +138,21 @@ def created_chunks():
         SimpleNamespace(id=uuid4()),
         SimpleNamespace(id=uuid4()),
     ]
+
+
+async def _create_and_process(service, request, document_repository):
+    """Upload then ingest, which is what the two halves add up to.
+
+    The repository is a mock, so it has to be told to hand back the row it
+    just "created" when the processing half looks it up.
+    """
+
+    document = await service.create_document(request)
+
+    document_repository.get_by_id.return_value = document
+
+    return await service.process_document(document.id)
+
 
 # --------------------------------------------------------------------------- #
 # Success
@@ -169,9 +195,9 @@ async def test_process_success(
     # Act
     # ------------------------------------------------------------------ #
 
-    result = await service.process(
-        processing_request,
-    )
+    result = await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     # ------------------------------------------------------------------ #
     # Assert parser
@@ -298,12 +324,14 @@ async def test_process_fails_when_parser_raises(
 
     document_repository.create.return_value = persisted_document
 
-    parser.parse.side_effect = RuntimeError(
-        "Unable to parse document."
+    parser.parse.side_effect = DocumentParsingError(
+        "Unable to parse 'crm.pdf'"
     )
 
-    with pytest.raises(RuntimeError):
-        await service.process(processing_request)
+    with pytest.raises(DocumentParsingError):
+        await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     document_repository.mark_processing.assert_awaited_once_with(
         persisted_document.id,
@@ -335,12 +363,14 @@ async def test_process_fails_when_splitter_raises(
 
     parser.parse.return_value = parsed_document
 
-    splitter.split_text.side_effect = ValueError(
+    splitter.split_text.side_effect = ChunkingError(
         "Splitter failed."
     )
 
-    with pytest.raises(ValueError):
-        await service.process(processing_request)
+    with pytest.raises(ChunkingError):
+        await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     parser.parse.assert_called_once()
 
@@ -384,7 +414,9 @@ async def test_process_fails_when_vector_store_raises(
     )
 
     with pytest.raises(RuntimeError):
-        await service.process(processing_request)
+        await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     chunk_repository.bulk_create.assert_awaited_once()
 
@@ -396,7 +428,8 @@ async def test_process_fails_when_vector_store_raises(
 
     kwargs = document_repository.mark_failed.await_args.kwargs
 
-    assert "Embedding service unavailable" in kwargs["error_message"]
+    assert "Embedding service unavailable" not in kwargs["error_message"]
+    assert "internal error" in kwargs["error_message"].lower()
 
 
 # --------------------------------------------------------------------------- #
@@ -431,7 +464,9 @@ async def test_process_fails_when_chunk_repository_raises(
     )
 
     with pytest.raises(RuntimeError):
-        await service.process(processing_request)
+        await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     chunk_repository.bulk_create.assert_awaited_once()
 
@@ -441,7 +476,8 @@ async def test_process_fails_when_chunk_repository_raises(
 
     kwargs = document_repository.mark_failed.await_args.kwargs
 
-    assert "Database write failed" in kwargs["error_message"]
+    assert "Database write failed" not in kwargs["error_message"]
+    assert "internal error" in kwargs["error_message"].lower()
 
 
 @pytest.mark.asyncio
@@ -468,9 +504,9 @@ async def test_process_handles_empty_document(
 
     chunk_repository.bulk_create.return_value = []
 
-    result = await service.process(
-        processing_request,
-    )
+    result = await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     vector_store.index_chunks.assert_awaited_once_with([])
 
@@ -502,8 +538,8 @@ async def test_process_fails_when_document_creation_fails(
     )
 
     with pytest.raises(RuntimeError):
-        await service.process(
-            processing_request,
+        await _create_and_process(
+            service, processing_request, document_repository
         )
 
     document_repository.mark_processing.assert_not_called()
@@ -539,9 +575,9 @@ async def test_process_calls_services_in_expected_order(
 
     chunk_repository.bulk_create.return_value = created_chunks
 
-    await service.process(
-        processing_request,
-    )
+    await _create_and_process(
+            service, processing_request, document_repository
+        )
 
     document_repository.create.assert_awaited_once()
 

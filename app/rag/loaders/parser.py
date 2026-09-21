@@ -61,7 +61,10 @@ class DocumentParser:
 
         if not path.exists():
             raise DocumentParsingError(
-                f"Document not found: {path}"
+                # Name only. This message is stored on the document and served
+                # by the status endpoint, and the full path is the
+                # server's upload directory.
+                f"Document not found: {path.name}"
             )
 
         extension = path.suffix.lower()

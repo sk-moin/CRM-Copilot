@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 from typing import AsyncGenerator
 
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -22,6 +23,12 @@ import os  # noqa: E402
 
 os.environ["LLM_PROVIDER"] = "mock"
 
+# Same reasoning, and the one that was actually missing: EMBEDDING_PROVIDER
+# defaults to "huggingface", which downloads and loads sentence-transformers
+# on first use. Every run so far has been passing it on the command line, so
+# the documented Verify command did not work as documented.
+os.environ.setdefault("EMBEDDING_PROVIDER", "mock")
+
 # Settings are a module-level singleton built at import time, so the line above
 # only wins if nothing imported app.core.config before this conftest. A plugin
 # loaded with -p, pytest-env, or a repo-root conftest would load first and
@@ -34,6 +41,12 @@ assert get_settings().LLM_PROVIDER == "mock", (
     "provider. Move the pin into pytest.ini if a plugin now loads first."
 )
 
+assert get_settings().EMBEDDING_PROVIDER == "mock", (
+    "EMBEDDING_PROVIDER is not mock, so the suite would load "
+    "sentence-transformers. Set EMBEDDING_PROVIDER=mock, or move the pin "
+    "into pytest.ini if a plugin now loads before this conftest."
+)
+
 from packages.database.models import (
     Tenant,
     Organization,
@@ -43,6 +56,17 @@ from packages.database.models import (
 )
 
 DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/crm_copilot"
+
+
+@pytest.fixture(scope="session")
+def database_url() -> str:
+    """The one place the suite's DSN is written down.
+
+    Tests that need their own engine -- because they must see genuinely
+    committed rows -- take this rather than repeating the literal.
+    """
+
+    return DATABASE_URL
 
 
 @pytest_asyncio.fixture(scope="function")

@@ -20,7 +20,37 @@ services:
       # Host 6380: another Redis already occupies 6379 on at least one dev
       # machine. Set REDIS_URL=redis://localhost:6380 to use this one.
       - "6380:6379"
-    # Refresh tokens and rate-limit counters only; nothing here is durable, so
-    # no volume. A local stub package used to stand in for this service, which
-    # is why it was missing from compose entirely.
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    # Also holds the job queue now, which is durable state: a job lost here
+    # is a document stuck at UPLOADED with its file orphaned and no FAILED
+    # status, which is exactly the silent disappearance the feature forbids.
+    # Append-only with a volume, so a restart replays instead of dropping.
+    volumes:
+      - redis_data:/data
+    command:
+      ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+
+  # The background worker. Runs the same code as the API from the same
+  # checkout; only the entry point differs. UPLOAD_DIR must be a volume the
+  # API also writes to, because the API stores the file and the worker reads
+  # it -- on one host that is the bind mount below, and on more than one it
+  # needs object storage instead.
+  worker:
+    image: python:3.13-slim
+    container_name: crm_worker
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/crm_copilot
+      REDIS_URL: redis://redis:6379
+      UPLOAD_DIR: /app/var/uploads
+    depends_on:
+      - postgres
+      - redis
+    command: >-
+      sh -c "pip install --no-cache-dir -r requirements.txt &&
+             arq app.jobs.worker.WorkerSettings"
+    profiles: ["worker"]
+
+volumes:
+  redis_data:

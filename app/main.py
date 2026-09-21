@@ -40,8 +40,13 @@ async def lifespan(app: FastAPI):
 
     # Release the Redis connection pool with the app, not at interpreter exit.
     from app.core.redis_client import reset_redis
+    from app.jobs.queue import reset_queue
 
     await reset_redis()
+
+    # The arq pool is a second, separate Redis connection pool held by the
+    # enqueue side. Closing only the first leaked it for the process lifetime.
+    await reset_queue()
 
 app = FastAPI(
     title="CRM Copilot API",
