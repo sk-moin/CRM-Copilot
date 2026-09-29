@@ -1,7 +1,12 @@
 # app/main.py
 """CRM Copilot API application."""
 
-from fastapi import Depends, FastAPI
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, Request
 
 # Import routers
 from app.api.routes.company import router as company_router
@@ -28,12 +33,16 @@ from app.api.rate_limit import (
     init_rate_limiter,
     reset_rate_limiter,
 )
-from contextlib import asynccontextmanager
-
 from app.guardrails.dependencies import get_guardrail_service
+from app.observability.logging import configure_logging
+from app.observability.metrics import metrics_snapshot, record_http_request
+from app.observability.request_context import request_context
 from dotenv import load_dotenv
 
 load_dotenv()
+configure_logging()
+logger = logging.getLogger("crm_copilot.api")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +71,7 @@ async def lifespan(app: FastAPI):
     # it again.
     await reset_rate_limiter()
 
+
 app = FastAPI(
     title="CRM Copilot API",
     version="0.1.0",
@@ -69,11 +79,92 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Health‑check endpoint
+
+@app.middleware("http")
+async def observability_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    tenant_id = request.headers.get("x-tenant-id")
+    org_id = request.headers.get("x-org-id")
+    user_id = request.headers.get("x-user-id")
+
+    with request_context(
+        request_id=request_id,
+        tenant_id=tenant_id,
+        org_id=org_id,
+        user_id=user_id,
+    ):
+        logger.info(
+            "request.started",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "tenant_id": tenant_id,
+                "org_id": org_id,
+                "user_id": user_id,
+            },
+        )
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = round((time.perf_counter() - start) * 1000, 3)
+            record_http_request(
+                method=request.method,
+                path=request.url.path,
+                status_code=500,
+                duration_ms=duration_ms,
+            )
+            logger.exception(
+                "request.failed",
+                extra={
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": 500,
+                    "duration_ms": duration_ms,
+                    "tenant_id": tenant_id,
+                    "org_id": org_id,
+                    "user_id": user_id,
+                },
+            )
+            raise
+
+        duration_ms = round((time.perf_counter() - start) * 1000, 3)
+        record_http_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
+        )
+        response.headers["X-Request-ID"] = request_id
+        logger.info(
+            "request.completed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+                "tenant_id": tenant_id,
+                "org_id": org_id,
+                "user_id": user_id,
+            },
+        )
+        return response
+
+
+# Health-check endpoint
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Simple health‑check endpoint."""
+    """Simple health-check endpoint."""
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+async def metrics() -> dict[str, object]:
+    """Return the in-memory metrics snapshot for local observability."""
+    return metrics_snapshot()
 
 # Register routers
 # Rate limiting is applied per router, not per handler. Three tiers:

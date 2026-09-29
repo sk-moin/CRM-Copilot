@@ -8,10 +8,14 @@
 - 006 Retrieval Observability (LangSmith) ✅
 - 007 AI Agent Orchestration (LangGraph) ✅
 - 008 Prompt Management  ✅
-- 009 AI Guardrails & Safety
-- 010 AI Actions & Approval Layer
-- 011 Background Jobs
-- 012 Rate Limiting
+- 009 AI Guardrails & Safety ✅
+
+- 010 AI Actions & Approval Layer ✅
+
+- 011 Background Jobs ✅
+
+- 012 Rate Limiting ✅
+
 - 013 Observability
 - 014 AI Evaluation Framework
 

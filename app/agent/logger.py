@@ -18,13 +18,17 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
+from app.observability.request_context import build_log_extra
+
 logger = logging.getLogger("crm_copilot.agent")
 
 
 class AgentLogger:
-    """
-    Helper for structured AI Agent logging.
-    """
+    """Helper for structured AI Agent logging."""
+
+    @staticmethod
+    def _log(level: int, message: str, **fields: object) -> None:
+        logger.log(level, message, extra=build_log_extra(**fields))
 
     @staticmethod
     def graph_started(
@@ -32,10 +36,11 @@ class AgentLogger:
         conversation_id: UUID,
         query: str,
     ) -> None:
-        logger.info(
-            "Graph execution started | conversation_id=%s | query=%s",
-            conversation_id,
-            query,
+        AgentLogger._log(
+            logging.INFO,
+            "agent.graph.started",
+            conversation_id=str(conversation_id),
+            query=query,
         )
 
     @staticmethod
@@ -43,9 +48,10 @@ class AgentLogger:
         *,
         conversation_id: UUID,
     ) -> None:
-        logger.info(
-            "Graph execution finished | conversation_id=%s",
-            conversation_id,
+        AgentLogger._log(
+            logging.INFO,
+            "agent.graph.finished",
+            conversation_id=str(conversation_id),
         )
 
     @staticmethod
@@ -53,9 +59,10 @@ class AgentLogger:
         *,
         conversation_id: UUID,
     ) -> None:
-        logger.info(
-            "Retrieval started | conversation_id=%s",
-            conversation_id,
+        AgentLogger._log(
+            logging.INFO,
+            "agent.retrieval.started",
+            conversation_id=str(conversation_id),
         )
 
     @staticmethod
@@ -64,13 +71,11 @@ class AgentLogger:
         conversation_id: UUID,
         document_count: int,
     ) -> None:
-        logger.info(
-            (
-                "Retrieval finished | "
-                "conversation_id=%s | documents=%d"
-            ),
-            conversation_id,
-            document_count,
+        AgentLogger._log(
+            logging.INFO,
+            "agent.retrieval.finished",
+            conversation_id=str(conversation_id),
+            document_count=document_count,
         )
 
     @staticmethod
@@ -78,9 +83,10 @@ class AgentLogger:
         *,
         conversation_id: UUID,
     ) -> None:
-        logger.info(
-            "Generation started | conversation_id=%s",
-            conversation_id,
+        AgentLogger._log(
+            logging.INFO,
+            "agent.generation.started",
+            conversation_id=str(conversation_id),
         )
 
     @staticmethod
@@ -88,9 +94,10 @@ class AgentLogger:
         *,
         conversation_id: UUID,
     ) -> None:
-        logger.info(
-            "Generation finished | conversation_id=%s",
-            conversation_id,
+        AgentLogger._log(
+            logging.INFO,
+            "agent.generation.finished",
+            conversation_id=str(conversation_id),
         )
 
     @staticmethod
@@ -100,7 +107,9 @@ class AgentLogger:
         error: Exception,
     ) -> None:
         logger.exception(
-            "Graph execution failed | conversation_id=%s",
-            conversation_id,
-            exc_info=error,
+            "agent.graph.failed",
+            extra=build_log_extra(
+                conversation_id=str(conversation_id),
+                error=type(error).__name__,
+            ),
         )
