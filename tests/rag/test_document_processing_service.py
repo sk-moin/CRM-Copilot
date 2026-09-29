@@ -99,6 +99,8 @@ def persisted_document():
         filename="crm.pdf",
         storage_path="/tmp/crm.pdf",
         document_type="pdf",
+        processing_status=DocumentProcessingStatus.UPLOADED,
+        chunk_count=0,
     )
 
 

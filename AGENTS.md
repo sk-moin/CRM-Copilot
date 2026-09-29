@@ -381,6 +381,49 @@ docker compose --profile worker up -d worker
 Without a worker running, uploads still return `202` and then sit at
 `UPLOADED` forever. That is the expected failure and the first thing to check.
 
+### Rate limiting
+
+Three fixed-window tiers, applied per router (or per route, where a router
+mixes cost levels), backed by the same Redis as everything else:
+
+- **auth** (`RATE_LIMIT_AUTH_TIMES`/`_SECONDS`, default 5/60s) - the
+  unauthenticated `/auth/login` and `/auth/register` routes, keyed by client
+  address.
+- **ai** (`RATE_LIMIT_AI_TIMES`/`_SECONDS`, default 20/60s) - chat, RAG query,
+  and document upload, which spend LLM or embedding budget.
+- **default** (`RATE_LIMIT_DEFAULT_TIMES`/`_SECONDS`, default 120/60s) -
+  everything else authenticated.
+
+A tier's budget is one number per identifier, shared across every route in
+that tier, not one budget per route -- `RateLimiter`'s own default key
+includes the route, which `app/api/rate_limit.py` deliberately does not use,
+so a caller cannot multiply their real throughput by the number of routes in
+a tier.
+
+Identity comes from the signed JWT (`tenant:<id>:user:<id>`), decoded
+directly rather than through `get_current_user`, because the identifier runs
+on every request and a second database round trip per request is not free.
+An anonymous caller, or one with no valid token, is keyed by address
+(`ip:<addr>`) instead -- this is deliberate for the auth routes and a
+fallback everywhere else, never an error.
+
+`X-Forwarded-For` is trusted only for exactly `TRUSTED_PROXY_COUNT` hops
+(default 0, meaning never). The header is client-supplied and trivially
+spoofed; trusting it by default would let a caller pick their own bucket.
+Render and Vercel each put exactly one proxy in front, so set it to 1 there.
+
+Redis unreachable fails open: requests succeed, unthrottled, and a warning is
+logged once per outage window rather than once per request. A limiter that
+took the API down when its counter store blinked would turn a minor
+dependency outage into a total one, and this project already treats Redis as
+rebuildable state everywhere else. The trade is explicit: while Redis is
+down, nothing is throttled.
+
+`fastapi-limiter` is pinned below 0.2 (see `requirements.txt`), which dropped
+direct Redis support for `pyrate-limiter` and defaults to an in-memory
+bucket -- not shared across processes, and not what "Redis-backed" means
+here.
+
 ### Dependencies
 
 ```

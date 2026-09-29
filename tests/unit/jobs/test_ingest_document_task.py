@@ -168,6 +168,33 @@ async def test_running_twice_does_not_duplicate_chunks(
 
 
 @pytest.mark.asyncio
+async def test_redelivery_after_source_removal_keeps_completed_document_ready(
+    async_session,
+    uploaded,
+    tenant,
+):
+    document, source = uploaded
+
+    first = await ingest_document(
+        _ctx(async_session), str(document.id), str(tenant.id)
+    )
+    assert not source.exists()
+
+    second = await ingest_document(
+        _ctx(async_session), str(document.id), str(tenant.id)
+    )
+
+    await async_session.refresh(document)
+    chunks = await _chunks_for(async_session, document.id)
+
+    assert second == first
+    assert document.processing_status == DocumentProcessingStatus.READY
+    assert document.error_message is None
+    assert document.chunk_count == first["chunk_count"]
+    assert len(chunks) == first["chunk_count"]
+
+
+@pytest.mark.asyncio
 async def test_the_source_file_is_removed_once_indexed(
     async_session,
     uploaded,

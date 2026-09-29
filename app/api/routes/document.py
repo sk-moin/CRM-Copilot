@@ -35,6 +35,7 @@ from app.jobs.queue import enqueue
 from app.rag.document_processing_service import (
     DocumentProcessingService,
 )
+from app.api.rate_limit import AI_TIER, DEFAULT_TIER
 from app.rag.loaders.parser import DocumentParser
 from packages.database.repositories.knowledge_document_repository import (
     KnowledgeDocumentRepository,
@@ -122,6 +123,10 @@ router = APIRouter(
     "/upload",
     response_model=DocumentEnqueuedResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    # AI tier: this enqueues a worker job that spends embedding budget, the
+    # same reason chat and RAG query are AI-tier rather than the generous
+    # default.
+    dependencies=[Depends(AI_TIER)],
 )
 async def upload_document(
     file: UploadFile = File(...),
@@ -296,6 +301,8 @@ async def _mark_unqueued(
 @router.get(
     "/{document_id}/status",
     response_model=DocumentStatusResponse,
+    # Default tier: a cheap status poll, not an AI cost.
+    dependencies=[Depends(DEFAULT_TIER)],
 )
 async def get_document_status(
     document_id: UUID,

@@ -214,6 +214,13 @@ class DocumentProcessingService:
                 f"Document {document_id} not found."
             )
 
+        if document.processing_status == DocumentProcessingStatus.READY:
+            return DocumentProcessingResult(
+                document_id=document.id,
+                chunk_count=document.chunk_count,
+                status=DocumentProcessingStatus.READY,
+            )
+
         # Read once, up front. `session.rollback()` in the failure path
         # expires every loaded instance, so touching `document.id` after it
         # triggers a lazy refresh from sync attribute access -- SQLAlchemy

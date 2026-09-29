@@ -61,6 +61,31 @@ class Settings(BaseSettings):
     JOB_TIMEOUT_SECONDS: int = Field(default=1800, ge=2, env="JOB_TIMEOUT_SECONDS")
     UPLOAD_DIR: str = Field(default="var/uploads", env="UPLOAD_DIR")
     MAX_UPLOAD_BYTES: int = Field(default=25 * 1024 * 1024, ge=1, env="MAX_UPLOAD_BYTES")
+
+    # Rate limiting. Three tiers because cost per request genuinely differs:
+    # strict and IP-keyed on the unauthenticated auth routes (brute-force
+    # guard), strict and tenant/user-keyed on the routes that spend LLM or
+    # embedding budget, generous on ordinary CRM reads and writes. Each is a
+    # (times, seconds) fixed window, matching fastapi-limiter's own shape.
+    RATE_LIMIT_PREFIX: str = Field(
+        default="crm_copilot:rate_limit", env="RATE_LIMIT_PREFIX"
+    )
+    RATE_LIMIT_AUTH_TIMES: int = Field(default=5, ge=1, env="RATE_LIMIT_AUTH_TIMES")
+    RATE_LIMIT_AUTH_SECONDS: int = Field(default=60, ge=1, env="RATE_LIMIT_AUTH_SECONDS")
+    RATE_LIMIT_AI_TIMES: int = Field(default=20, ge=1, env="RATE_LIMIT_AI_TIMES")
+    RATE_LIMIT_AI_SECONDS: int = Field(default=60, ge=1, env="RATE_LIMIT_AI_SECONDS")
+    RATE_LIMIT_DEFAULT_TIMES: int = Field(
+        default=120, ge=1, env="RATE_LIMIT_DEFAULT_TIMES"
+    )
+    RATE_LIMIT_DEFAULT_SECONDS: int = Field(
+        default=60, ge=1, env="RATE_LIMIT_DEFAULT_SECONDS"
+    )
+    # How many reverse proxies sit in front of this app. 0 means
+    # X-Forwarded-For is never trusted -- it is client-supplied and trivially
+    # spoofed -- and the direct TCP peer is used instead. Render and Vercel
+    # each put exactly one proxy in front, so 1 is the production value there.
+    TRUSTED_PROXY_COUNT: int = Field(default=0, ge=0, env="TRUSTED_PROXY_COUNT")
+
     TOKEN_ALGORITHM: str = Field(default="HS256", env="TOKEN_ALGORITHM")
     JWT_ISSUER: str = Field(default="crm-copilot", env="JWT_ISSUER")
     JWT_AUDIENCE: str = Field(default="crm-copilot-api", env="JWT_AUDIENCE")
@@ -138,6 +163,14 @@ JOB_MAX_TRIES: Final[int] = _settings.JOB_MAX_TRIES
 JOB_TIMEOUT_SECONDS: Final[int] = _settings.JOB_TIMEOUT_SECONDS
 UPLOAD_DIR: Final[str] = _settings.UPLOAD_DIR
 MAX_UPLOAD_BYTES: Final[int] = _settings.MAX_UPLOAD_BYTES
+RATE_LIMIT_PREFIX: Final[str] = _settings.RATE_LIMIT_PREFIX
+RATE_LIMIT_AUTH_TIMES: Final[int] = _settings.RATE_LIMIT_AUTH_TIMES
+RATE_LIMIT_AUTH_SECONDS: Final[int] = _settings.RATE_LIMIT_AUTH_SECONDS
+RATE_LIMIT_AI_TIMES: Final[int] = _settings.RATE_LIMIT_AI_TIMES
+RATE_LIMIT_AI_SECONDS: Final[int] = _settings.RATE_LIMIT_AI_SECONDS
+RATE_LIMIT_DEFAULT_TIMES: Final[int] = _settings.RATE_LIMIT_DEFAULT_TIMES
+RATE_LIMIT_DEFAULT_SECONDS: Final[int] = _settings.RATE_LIMIT_DEFAULT_SECONDS
+TRUSTED_PROXY_COUNT: Final[int] = _settings.TRUSTED_PROXY_COUNT
 TOKEN_ALGORITHM: Final[str] = _settings.TOKEN_ALGORITHM
 JWT_ISSUER: Final[str] = _settings.JWT_ISSUER
 JWT_AUDIENCE: Final[str] = _settings.JWT_AUDIENCE
@@ -211,6 +244,14 @@ __all__ = [
     "JOB_TIMEOUT_SECONDS",
     "UPLOAD_DIR",
     "MAX_UPLOAD_BYTES",
+    "RATE_LIMIT_PREFIX",
+    "RATE_LIMIT_AUTH_TIMES",
+    "RATE_LIMIT_AUTH_SECONDS",
+    "RATE_LIMIT_AI_TIMES",
+    "RATE_LIMIT_AI_SECONDS",
+    "RATE_LIMIT_DEFAULT_TIMES",
+    "RATE_LIMIT_DEFAULT_SECONDS",
+    "TRUSTED_PROXY_COUNT",
     "TOKEN_ALGORITHM",
     "JWT_ISSUER",
     "JWT_AUDIENCE",
