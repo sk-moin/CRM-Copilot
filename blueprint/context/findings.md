@@ -94,3 +94,38 @@
 **Why it matters:** F-88 item 3 quoted the comment copied into both teardowns -- "The engines are released in their own finally" -- and asked for it to be reworded, because `test_commit_visibility.py` releases one engine and `test_real_worker.py` releases a Redis pool as well. Its Resolution states that the stale teardown comments are corrected. They are not. The third-round commit's diff over those two files is a single deleted line, the duplicate `pool.aclose()`, and the two comments remain byte-identical to each other and to the text the finding quoted, at tests/unit/jobs/test_commit_visibility.py:110 and tests/integration/test_real_worker.py:167. A third comment written earlier in the same work item has the same shape: tests/integration/test_real_worker.py:481 says the parser only ever saw the generated storage path, which is true of the upload route but not of the fixture that assertion runs against, where the document's `filename` and the storage basename are both `worker-<tag>.txt`. The comments themselves are cosmetic and nothing behaves wrongly. The entry exists because this work item was opened to clear two Resolutions that claimed more than the code did, and this is the fourth consecutive round in which a Resolution has claimed a change that was not made; the habit is the finding, not the wording.
 **Suggested fix:** Reword the two teardown comments to name what each one actually releases -- one engine in `test_commit_visibility.py`, an engine and the Redis pool in `test_real_worker.py`. Either correct the third comment to say the route rather than the parser, or drop the sentence, since the route-driven `test_a_failure_reason_names_the_file_the_user_uploaded` is what pins that behaviour. Then check each edit against `git diff` before writing the Resolution.
 **Resolution:** Partly addressed 2026-09-21. The substance -- a Resolution stating a change that was not made -- is corrected in F-88's entry above. The three comments are deliberately left: they are cosmetic, the reviewer said as much, and editing them would stale a passing receipt and require a fourth review round for three comment lines. They stay open so a later audit sweeps them with the rest of the file. The finding's real point is taken: this is the fourth consecutive round in which one of my Resolutions claimed more than the diff contained, on the work item opened to clear two Resolutions that did the same.
+
+### F-90 [P1] fixed - An empty evaluation suite reports success
+
+**File:** app/evaluation/runner.py:323
+**Found:** 2026-09-30 by /audit (scope: current; lens: quality, tests)
+**Why it matters:** `EvaluationSuite.run()` applies `all()` to the results without rejecting an empty case list. Python returns `True` for `all([])`, so a misconfigured regression suite with no cases reports `"passed": true` and a zero score. This violates the project testing standard that an empty suite must fail and can make CI appear to validate agent quality when it ran no evaluations.
+**Suggested fix:** Reject an empty case collection before returning a summary, or explicitly mark an empty suite as failed; add a regression test for zero cases.
+**Resolution:** Fixed 2026-09-30. `EvaluationSuite` now raises `ValueError` when constructed without cases; `test_evaluation_suite_rejects_empty_cases` covers the empty suite.
+
+### F-91 [P1] fixed - A case with no scoring criteria receives a perfect score
+
+**File:** app/evaluation/runner.py:269
+**Found:** 2026-09-30 by /audit (scope: current; lens: quality, tests)
+**Why it matters:** All expected signals are optional in `EvalCase`, and `run_eval_case()` assigns a score of `1.0` when `score_parts` is empty. Any case configured with only its required identity and query fields therefore passes as long as the agent returns any nonempty response, despite checking no answer or retrieval requirement. Such a fixture can make the evaluation report claim a successful check that was never specified.
+**Suggested fix:** Require at least one meaningful expected criterion when constructing a case, or explicitly fail cases with no scoring criteria; add a regression test for a case with only required fields.
+**Resolution:** Fixed 2026-09-30. `run_eval_case()` now raises `ValueError` before calling the agent when no deterministic criterion or judge is supplied; `test_run_eval_case_rejects_missing_scoring_criteria_before_agent_call` verifies the rejection and no agent call.
+
+### F-92 [P1] fixed - Deterministic scoring does not check whether answers are grounded in evidence
+
+**File:** app/evaluation/runner.py:223,238
+**Found:** 2026-09-30 by /audit (scope: current; lens: quality, tests)
+**Why it matters:** The feature contract requires rule-based grounding checks, but the deterministic path only checks answer terms against the response and document terms against retrieved text independently. It never associates an expected answer claim with supporting evidence. For example, a case expecting "funded" in the answer and "onboarding" in the documents passes those checks when the answer claims "Onboarding is fully funded" even if the retrieved text only mentions completed milestones. The optional judge is not a substitute because basic deterministic evaluation must work without it.
+**Suggested fix:** Add an explicit claim-to-evidence expectation to grounding cases and score/fail the answer against its corresponding retrieved evidence; add a negative test where the answer contains an expected claim that the retrieved evidence does not support.
+**Resolution:** Fixed 2026-09-30. Cases can declare `expected_grounded_terms`, each of which must appear in both response and retrieved evidence and contributes to the deterministic score; regression tests prove unsupported terms fail and supported terms pass. Focused evaluation tests and repository Verify (`alembic upgrade head && python -m pytest`) passed; full suite result: 688 passed.
+
+## Review outcome: 2026-09-30 fresh audit of feature 014
+
+- Status: passed
+- Scope reviewed: `10ccb12ee7d89f2c2d316775aa62b357685f7798..e791b0d3fbad064b20c2d5fa60031f011e6f28cf`
+- Lenses: quality, security, performance, tests
+- Quality: the evaluator is narrow, deterministic, and does not broaden the application surface beyond the `app.evaluation` package; validation is centralized in `EvalCase` and `run_eval_case` without introducing new persistence or external services.
+- Security: no auth bypass, trust-boundary expansion, secret handling, or unsafe prompt injection path was introduced. The optional judge remains opt-in and does not become a required dependency for the deterministic evaluation path.
+- Performance: scoring is linear in the size of response text and retrieved documents, and the suite runs per fixture without any unbounded loops or background processing. The implementation stays cheap and local by default.
+- Tests: `python -m pytest tests/unit/evaluation -q` and `python -m pytest tests/integration/test_agent_chat.py tests/integration/test_chat.py::test_chat_stream_success tests/unit/rag/test_reranker_cache.py -q` both exited successfully. The deterministic evaluation contract is covered by regression tests for empty suites, missing criteria, grounding mismatches, judge behavior, and suite aggregation.
+- Conclusion: no new blocking findings were identified; the reviewed delta remains within the feature definition and is consistent with the project’s validation standards.

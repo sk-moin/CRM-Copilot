@@ -15,9 +15,11 @@ from __future__ import annotations
 import uuid
 from typing import AsyncGenerator
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from langchain_core.documents import Document
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
@@ -30,6 +32,25 @@ from packages.database.models import (
     Tenant,
     User,
 )
+
+
+class _IdentityReranker:
+    def rerank(self, query: str, documents: list[Document]) -> list[Document]:
+        return documents
+
+
+@pytest.fixture(autouse=True)
+def _use_deterministic_reranker(monkeypatch):
+    """Keep integration tests from loading the production cross-encoder."""
+
+    from app.rag import retrieval_service
+
+    monkeypatch.setattr(
+        retrieval_service,
+        "get_default_reranker",
+        lambda: _IdentityReranker(),
+    )
+
 
 from packages.database.repositories.company_repository import (
     CompanyRepository,
